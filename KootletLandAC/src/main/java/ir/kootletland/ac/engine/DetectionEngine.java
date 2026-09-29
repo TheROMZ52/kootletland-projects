@@ -2,56 +2,154 @@ package ir.kootletland.ac.engine;
 
 import ir.kootletland.ac.model.Evidence;
 import ir.kootletland.ac.model.PlayerData;
+import org.bukkit.GameMode;
 import org.bukkit.Location;
+import org.bukkit.Material;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.Player;
+import org.bukkit.util.BoundingBox;
+import org.bukkit.util.Vector;
 
 import java.time.Instant;
+import java.util.HashMap;
 import java.util.Map;
+import java.util.function.Consumer;
 
 public final class DetectionEngine {
-    private final PhysicsEngine physics = new PhysicsEngine();
+    private final PhysicsEngine physics=new PhysicsEngine();
 
-    public void movement(Player p, PlayerData d, java.util.function.Consumer<Evidence> sink) {
-        if (physics.contextualGrace(p,d)) { d.movementAnomaly(false); return; }
+    public void movement(Player p,PlayerData d,Consumer<Evidence> sink){
+        if(physics.contextualGrace(p,d)){d.movementAnomaly(false);return;}
+        Location now=d.current();
+        if(!finite(now)){d.movementAnomaly(true);emit(p,"InvalidMovement",.995,2.0,sink,Map.of("reason","non_finite_coordinates"));return;}
+
         double expected=physics.expectedHorizontal(p,d);
-        d.lastExpectedSpeed(expected);
         double actual=d.horizontalSpeed();
-        double ratio=expected>0?actual/expected:0;
-        boolean speed=ratio>1.28 && actual-expected>0.045;
-        boolean fly=d.verticalDelta()>0.72 && !p.isJumping() && !p.isOnGround();
-        boolean step=d.verticalDelta()>0.95 && d.horizontalSpeed()>0.08;
-        boolean phase=!p.isOnGround() && p.getLocation().getBlock().getType().isSolid() && d.horizontalSpeed()>0.2;
-        boolean invalid=!finite(d.current().getX())||!finite(d.current().getY())||!finite(d.current().getZ())||Math.abs(d.current().getY())>1.0E7;
-        boolean timer=(System.nanoTime()-d.lastMovementNanos())<30_000_000L && d.movementSamples()>25;
-        boolean anomaly=speed||fly||step||phase||invalid||timer;
-        d.movementAnomaly(anomaly);
-        if(!anomaly) return;
-        double confidence=0.45;
-        if(speed) confidence+=0.22*Math.min(1,(ratio-1.0)/0.8);
-        if(fly) confidence+=0.16;
-        if(step) confidence+=0.08;
-        if(phase) confidence+=0.08;
-        if(invalid) confidence=0.99;
-        if(timer) confidence+=0.05;
-        confidence=Math.min(0.995,confidence + Math.min(0.15,d.consecutiveMovementAnomalies()*0.01));
-        double vl=Math.max(0.15,(confidence-0.55)*4.0);
-        sink.accept(new Evidence(p.getName(), invalid?"InvalidMovement":speed?"Speed":fly?"Fly":step?"Step":"Movement",confidence,vl,Instant.now(),Map.of("expected",expected,"actual",actual,"ratio",ratio,"dx",d.current().getX()-d.last().getX(),"dy",d.verticalDelta(),"dz",d.current().getZ()-d.last().getZ())));
+        double ratio=actual/Math.max(.05,expected);
+        double latency=physics.latencyFactor(p);
+        double interval=d.movementIntervalMs();
+        double tickRatio=interval>0?50.0/interval:1.0;
+
+        boolean invalid=Math.abs(now.getY())>2.0E7||Math.abs(now.getX())>3.0E7||Math.abs(now.getZ())>3.0E7;
+        boolean speed=ratio>1.24+latency&&actual-expected>.035&&d.movementSamples()>3;
+        boolean fly=!p.isOnGround()&&!p.isInWater()&&!p.isInLava()&&d.movementSamples()>8
+                &&d.verticalDelta()>.30&&d.velocity().getY()<.08&&d.lastExpectedSpeed()>.05;
+        boolean highJump=!p.isOnGround()&&!p.isInWater()&&d.verticalDelta()>.72&&d.movementSamples()>6;
+        boolean step=d.verticalDelta()>.72&&d.verticalDelta()<1.35&&d.horizontalSpeed()>.07&&p.isOnGround();
+        boolean noFall=p.getFallDistance()>4.0&&p.isOnGround()&&d.verticalDelta()<=.03&&d.movementSamples()>12;
+        Material block=p.getLocation().getBlock().getType();
+        boolean jesus=p.isInWater()&&!p.isSwimming()&&Math.abs(d.verticalDelta())<.01&&d.horizontalSpeed()>.12;
+        boolean noweb=block==Material.COBWEB&&d.horizontalSpeed()>.12&&!p.isSneaking();
+        boolean longJump=!p.isOnGround()&&d.verticalDelta()>.08&&d.verticalDelta()<.65&&ratio>1.42;
+        boolean timer=d.movementSamples()>35&&tickRatio>1.45&&d.movementStdDev()<5.0;
+        boolean phase=insideSolid(p)&&d.horizontalSpeed()>.08&&!p.isSneaking();
+        boolean strafe=!p.isOnGround()&&Math.abs(d.yawDelta())>115&&actual>expected*1.15;
+        boolean motion=!p.isOnGround()&&Math.abs(d.verticalDelta())>.42&&Math.abs(d.velocity().getY())<.04;
+
+        int signals=(invalid?1:0)+(speed?1:0)+(fly?1:0)+(highJump?1:0)+(step?1:0)+(noFall?1:0)+(jesus?1:0)+(noweb?1:0)+(longJump?1:0)+(timer?1:0)+(phase?1:0)+(strafe?1:0)+(motion?1:0);
+        d.movementAnomaly(signals>0);
+        if(signals==0)return;
+
+        double confidence=.30;
+        confidence+=speed?Math.min(.25,Math.max(0,ratio-1.0)*.28):0;
+        confidence+=fly?.16:0;
+        confidence+=highJump?.12:0;
+        confidence+=step?.08:0;
+        confidence+=noFall?.10:0;
+        confidence+=jesus?.09:0;
+        confidence+=noweb?.09:0;
+        confidence+=longJump?.10:0;
+        confidence+=timer?.08:0;
+        confidence+=phase?.10:0;
+        confidence+=strafe?.06:0;
+        confidence+=motion?.07:0;
+        confidence+=Math.min(.12,d.consecutiveMovementAnomalies()*.006);
+        confidence-=latency*.25;
+        if(invalid)confidence=.995;
+        confidence=Math.max(.25,Math.min(.995,confidence));
+
+        String check=invalid?"InvalidMovement":speed?"Speed":fly?"Fly":highJump?"HighJump":step?"Step":noFall?"NoFall":jesus?"Jesus":noweb?"NoWeb":longJump?"LongJump":timer?"Timer":phase?"Phase":strafe?"Strafe":"Motion";
+        Map<String,Object> data=new HashMap<>();
+        data.put("expected",expected);
+        data.put("actual",actual);
+        data.put("ratio",ratio);
+        data.put("pingMs",p.getPing());
+        data.put("latencyFactor",latency);
+        data.put("movementIntervalMs",interval);
+        data.put("movementStdDev",d.movementStdDev());
+        data.put("tickRatio",tickRatio);
+        data.put("dx",now.getX()-d.last().getX());
+        data.put("dy",d.verticalDelta());
+        data.put("dz",now.getZ()-d.last().getZ());
+        data.put("velocityY",d.velocity().getY());
+        data.put("onGround",p.isOnGround());
+        data.put("signals",signals);
+        emit(p,check,confidence,Math.max(.06,(confidence-.48)*2.6),sink,data);
     }
 
-    public void combat(Player attacker, Entity target, PlayerData d, java.util.function.Consumer<Evidence> sink) {
-        if(!(target instanceof Player victim) || attacker.getGameMode().isInvulnerable()) return;
-        Location eye=attacker.getEyeLocation(); Location center=victim.getBoundingBox().getCenter().toLocation(victim.getWorld()); double distance=eye.distance(center);
-        boolean reach=distance>4.2 && distance<8.0;
-        boolean aim=Math.abs(d.yawDelta())>70 && d.horizontalSpeed()<0.02;
-        long interval=d.lastAttackNanos()==0?Long.MAX_VALUE:System.nanoTime()-d.lastAttackNanos();
-        boolean click=interval<45_000_000L;
-        if(!(reach||aim||click)) { d.combatAnomaly(false); return; }
-        d.combatAnomaly(true);
-        double c=0.48+(reach?0.22:0)+(aim?0.12:0)+(click?0.10:0)+Math.min(0.08,d.consecutiveCombatAnomalies()*0.01);
-        c=Math.min(0.97,c);
-        sink.accept(new Evidence(attacker.getName(),reach?"Reach":aim?"Aim":"AutoClicker",c,Math.max(0.1,(c-.5)*3),Instant.now(),Map.of("distance",distance,"yawDelta",d.yawDelta(),"attackIntervalMs",interval/1_000_000.0,"target",victim.getName())));
+    public void combat(Player attacker,Entity target,PlayerData d,Consumer<Evidence> sink){
+        if(!(target instanceof Player victim)||attacker.getGameMode().isInvulnerable()||attacker.getWorld()!=victim.getWorld())return;
+        if(physics.combatGrace(attacker,d))return;
+
+        Vector eye=attacker.getEyeLocation().toVector();
+        BoundingBox box=victim.getBoundingBox();
+        double distance=distanceToBox(eye,box);
+        double ping=Math.max(0,attacker.getPing());
+        double allowance=Math.min(.75,ping/450.0);
+        double interval=d.attackIntervalMs();
+        double yaw=Math.abs(d.yawDelta());
+        double pitch=Math.abs(d.pitchDelta());
+
+        boolean reach=distance>3.15+allowance&&distance<7.5;
+        boolean aim=yaw>95&&yaw<175&&pitch<25&&d.horizontalSpeed()<.08;
+        boolean click=interval>0&&interval<48&&d.attackSamples()>8;
+        boolean periodic=click&&d.attackStdDev()<3.5&&d.attackSamples()>12;
+        boolean killaura=aim&&periodic&&(distance<4.5+allowance);
+
+        int signals=(reach?1:0)+(aim?1:0)+(periodic?1:0)+(killaura?1:0);
+        d.combatAnomaly(signals>0);
+        if(signals==0)return;
+
+        double confidence=.30;
+        confidence+=reach?.24:0;
+        confidence+=aim?.12:0;
+        confidence+=periodic?.18:0;
+        confidence+=killaura?.10:0;
+        confidence+=Math.min(.12,d.consecutiveCombatAnomalies()*.007);
+        confidence-=Math.min(.14,ping/1000.0);
+        confidence=Math.max(.25,Math.min(.99,confidence));
+
+        String check=killaura?"KillAura":reach?"Reach":periodic?"AutoClicker":"Aim";
+        Map<String,Object> data=new HashMap<>();
+        data.put("distanceToHitbox",distance);
+        data.put("pingMs",ping);
+        data.put("reachAllowance",allowance);
+        data.put("yawDelta",yaw);
+        data.put("pitchDelta",pitch);
+        data.put("attackIntervalMs",interval);
+        data.put("attackStdDev",d.attackStdDev());
+        data.put("target",victim.getName());
+        data.put("signals",signals);
+        emit(attacker,check,confidence,Math.max(.05,(confidence-.5)*2.5),sink,data);
     }
 
-    private boolean finite(double v){return Double.isFinite(v);}
+    private boolean insideSolid(Player p){
+        Location l=p.getLocation();
+        Material m=p.getWorld().getBlockAt(l).getType();
+        return m.isSolid()&&!m.isAir()&&!p.isInsideVehicle();
+    }
+
+    private double distanceToBox(Vector point,BoundingBox box){
+        double x=clamp(point.getX(),box.getMinX(),box.getMaxX());
+        double y=clamp(point.getY(),box.getMinY(),box.getMaxY());
+        double z=clamp(point.getZ(),box.getMinZ(),box.getMaxZ());
+        return point.distance(new Vector(x,y,z));
+    }
+
+    private double clamp(double v,double min,double max){return Math.max(min,Math.min(max,v));}
+    private boolean finite(Location l){return l!=null&&Double.isFinite(l.getX())&&Double.isFinite(l.getY())&&Double.isFinite(l.getZ());}
+
+    private void emit(Player p,String check,double confidence,double violation,Consumer<Evidence> sink,Map<String,Object> data){
+        sink.accept(new Evidence(p.getName(),check,confidence,violation,Instant.now(),Map.copyOf(data)));
+    }
 }
