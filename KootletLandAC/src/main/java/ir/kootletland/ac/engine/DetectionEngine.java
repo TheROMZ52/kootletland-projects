@@ -41,7 +41,7 @@ public final class DetectionEngine {
 
     public void combat(Player attacker, Entity target, PlayerData d, java.util.function.Consumer<Evidence> sink) {
         if(!(target instanceof Player victim) || attacker.getGameMode().isInvulnerable()) return;
-        Location eye=attacker.getEyeLocation(); double distance=eye.distance(victim.getBoundingBox().getCenter());
+        Location eye=attacker.getEyeLocation(); Location center=victim.getBoundingBox().getCenter().toLocation(victim.getWorld()); double distance=eye.distance(center);
         boolean reach=distance>4.2 && distance<8.0;
         boolean aim=Math.abs(d.yawDelta())>70 && d.horizontalSpeed()<0.02;
         long interval=d.lastAttackNanos()==0?Long.MAX_VALUE:System.nanoTime()-d.lastAttackNanos();
