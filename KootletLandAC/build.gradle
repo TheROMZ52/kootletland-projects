@@ -15,3 +15,5 @@ tasks.withType(JavaCompile).configureEach { options.encoding = 'UTF-8'; options.
 tasks.test { useJUnitPlatform() }
 
 processResources { filesMatching('plugin.yml') { expand(version: project.version) } }
+
+// KootletLandAC build configuration
