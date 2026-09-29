@@ -50,13 +50,15 @@ public final class PlayerData {
     public double confidence(){return confidence;}
     public void addViolation(double v){violation=Math.min(100,Math.max(0,violation+v));}
     public void decay(double amount){violation=Math.max(0,violation-amount); confidence=Math.max(0,confidence-amount*0.03);}
-    public void confidence(double c){confidence=Math.max(confidence,c);}
+    public void confidence(double c){confidence=Math.max(0,Math.min(1,c));}
     public Deque<Evidence> evidence(){return evidence;}
     public void addEvidence(Evidence e,int max){evidence.addFirst(e);while(evidence.size()>max)evidence.removeLast();}
     public double yawDelta(){return yawDelta;}
     public double pitchDelta(){return pitchDelta;}
     public double horizontalSpeed(){return horizontalSpeed;}
     public double verticalDelta(){return verticalDelta;}
+    public int movementSamples(){return movementSamples;}
+    public int attackSamples(){return attackSamples;}
     public int consecutiveMovementAnomalies(){return consecutiveMovementAnomalies;}
     public void movementAnomaly(boolean anomaly){consecutiveMovementAnomalies=anomaly?consecutiveMovementAnomalies+1:Math.max(0,consecutiveMovementAnomalies-1);}
     public int consecutiveCombatAnomalies(){return consecutiveCombatAnomalies;}
