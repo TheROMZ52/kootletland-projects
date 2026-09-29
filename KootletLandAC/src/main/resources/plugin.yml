@@ -1,0 +1,19 @@
+name: KootletLandAC
+version: ${version}
+main: ir.kootletland.ac.KootletLandAC
+api-version: '1.21'
+author: TheROMZ52
+description: Modular, evidence-driven anti-cheat for KootletLand
+softdepend: [GrimAC, LiteBans, LuckPerms]
+commands:
+  kac:
+    description: KootletLandAC administration command
+    usage: /kac <debug|alerts|stats|reload|verbose>
+    permission: kootletlandac.admin
+permissions:
+  kootletlandac.admin:
+    default: op
+  kootletlandac.bypass:
+    default: false
+  kootletlandac.alerts:
+    default: op
