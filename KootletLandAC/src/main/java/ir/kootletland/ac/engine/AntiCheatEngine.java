@@ -21,7 +21,7 @@ public final class AntiCheatEngine {
     private long alerts;
     private long started;
 
-    public AntiCheatEngine(Plugin plugin){this.plugin=plugin;}
+    public AntiCheatEngine(Plugin plugin){this.plugin=plugin;reloadChecks();}
 
     public void start(){
         started=System.currentTimeMillis();
@@ -33,6 +33,11 @@ public final class AntiCheatEngine {
             }
             lastAlerts.entrySet().removeIf(e->System.currentTimeMillis()-e.getValue()>60_000L);
         },20L,20L);
+    }
+
+    public void reloadChecks(){
+        String[][] groups={{"speed","Speed"},{"fly","Fly"},{"nofall","NoFall"},{"jesus","Jesus"},{"step","Step"},{"highjump","HighJump"},{"longjump","LongJump"},{"timer","Timer"},{"phase","Phase"},{"noweb","NoWeb"},{"invalidmovement","InvalidMovement"},{"strafe","Strafe"},{"motion","Motion"},{"reach","Reach"},{"killaura","KillAura"},{"aim","Aim"},{"autoclicker","AutoClicker"},{"velocity","Velocity"}};
+        for(String[] x:groups) detection.setEnabled(x[1],plugin.getConfig().getBoolean("checks.movement."+x[0],true)||plugin.getConfig().getBoolean("checks.combat."+x[0],true));
     }
 
     public void shutdown(){
