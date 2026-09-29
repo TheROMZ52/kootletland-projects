@@ -54,8 +54,10 @@ public final class DetectionEngine {
         boolean phase=insideSolid(p)&&d.horizontalSpeed()>.08&&!p.isSneaking();
         boolean strafe=!p.isOnGround()&&Math.abs(d.yawDelta())>115&&actual>expected*1.15;
         boolean motion=!p.isOnGround()&&Math.abs(d.verticalDelta())>.42&&Math.abs(d.velocity().getY())<.04;
+        long velocityAge=System.nanoTime()-d.lastVelocityNanos();
+        boolean velocity=velocityAge>120_000_000L&&velocityAge<900_000_000L&&d.velocity().lengthSquared()>.09&&actual<Math.max(.035,d.velocity().clone().setY(0).length()*.18);
 
-        int signals=(invalid?1:0)+(speed?1:0)+(fly?1:0)+(highJump?1:0)+(step?1:0)+(noFall?1:0)+(jesus?1:0)+(noweb?1:0)+(longJump?1:0)+(timer?1:0)+(phase?1:0)+(strafe?1:0)+(motion?1:0);
+        int signals=(invalid?1:0)+(speed?1:0)+(fly?1:0)+(highJump?1:0)+(step?1:0)+(noFall?1:0)+(jesus?1:0)+(noweb?1:0)+(longJump?1:0)+(timer?1:0)+(phase?1:0)+(strafe?1:0)+(motion?1:0)+(velocity?1:0);
         d.movementAnomaly(signals>0);
         if(signals==0)return;
 
@@ -72,12 +74,13 @@ public final class DetectionEngine {
         confidence+=phase?.10:0;
         confidence+=strafe?.06:0;
         confidence+=motion?.07:0;
+        confidence+=velocity?.11:0;
         confidence+=Math.min(.12,d.consecutiveMovementAnomalies()*.006);
         confidence-=latency*.25;
         if(invalid)confidence=.995;
         confidence=Math.max(.25,Math.min(.995,confidence));
 
-        String check=invalid?"InvalidMovement":speed?"Speed":fly?"Fly":highJump?"HighJump":step?"Step":noFall?"NoFall":jesus?"Jesus":noweb?"NoWeb":longJump?"LongJump":timer?"Timer":phase?"Phase":strafe?"Strafe":"Motion";
+        String check=invalid?"InvalidMovement":speed?"Speed":fly?"Fly":highJump?"HighJump":step?"Step":noFall?"NoFall":jesus?"Jesus":noweb?"NoWeb":longJump?"LongJump":timer?"Timer":phase?"Phase":strafe?"Strafe":velocity?"Velocity":"Motion";
         if(!enabled(check))return;
         Map<String,Object> data=new HashMap<>();
         data.put("expected",expected);
@@ -94,6 +97,7 @@ public final class DetectionEngine {
         data.put("velocityY",d.velocity().getY());
         data.put("onGround",p.isOnGround());
         data.put("signals",signals);
+        data.put("velocityAgeMs",velocityAge/1_000_000.0);
         emit(p,check,confidence,Math.max(.06,(confidence-.48)*2.6),sink,data);
     }
 
