@@ -39,6 +39,10 @@ public final class PlayerData {
     public Vector velocity(){return lastVelocity;}
     public void velocity(Vector v){lastVelocity=v.clone();}
     public long lastMovementNanos(){return lastMovementNanos;}
+    public long lastMovementTick(){return lastMovementTick;}
+    public void movementTick(long tick){lastMovementTick=tick;}
+    public long lastAttackTick(){return lastAttackTick;}
+    public void attackTick(long tick){lastAttackTick=tick;}
     public void touchMovement(){lastMovementNanos=System.nanoTime();}
     public long lastAttackNanos(){return lastAttackNanos;}
     public void touchAttack(){lastAttackNanos=System.nanoTime(); attackSamples++;}
