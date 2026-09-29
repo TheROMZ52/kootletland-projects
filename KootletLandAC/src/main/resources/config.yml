@@ -1,0 +1,33 @@
+settings:
+  alerts: true
+  alert-cooldown-ms: 3000
+  auto-punishment: false
+  debug-retention: 120
+  max-evidence-per-player: 80
+  confidence-warning-threshold: 0.82
+  violation-warning-threshold: 5.0
+checks:
+  movement:
+    speed: true
+    fly: true
+    nofall: true
+    jesus: true
+    step: true
+    highjump: true
+    longjump: true
+    timer: true
+    phase: true
+    noweb: true
+    invalidmovement: true
+    strafe: true
+    motion: true
+  combat:
+    reach: true
+    killaura: true
+    aim: true
+    autoclicker: true
+    velocity: true
+integrations:
+  grim: true
+  litebans: false
+  luckperms: true
