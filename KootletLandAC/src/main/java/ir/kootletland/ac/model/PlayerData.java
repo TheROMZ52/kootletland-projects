@@ -10,14 +10,17 @@ import java.util.UUID;
 
 public final class PlayerData {
     private final UUID uuid;
-    private final Deque<Evidence> evidence = new ArrayDeque<>();
+    private final Deque<Evidence> evidence=new ArrayDeque<>();
     private Location last;
     private Location current;
-    private Vector lastVelocity = new Vector();
+    private Vector lastVelocity=new Vector();
     private long lastMovementNanos;
     private long lastAttackNanos;
     private long lastTeleportNanos;
     private long lastDamageNanos;
+    private long lastVelocityNanos;
+    private long lastMovementTick;
+    private long lastAttackTick;
     private double violation;
     private double confidence;
     private int movementSamples;
@@ -26,16 +29,55 @@ public final class PlayerData {
     private double pitchDelta;
     private double horizontalSpeed;
     private double verticalDelta;
+    private double lastExpectedSpeed;
+    private double movementIntervalMs;
+    private double attackIntervalMs;
+    private double movementMean;
+    private double movementM2;
+    private long movementCount;
+    private double attackMean;
+    private double attackM2;
+    private long attackCount;
     private int consecutiveMovementAnomalies;
     private int consecutiveCombatAnomalies;
-    private double lastExpectedSpeed;
 
-    public PlayerData(Player player) { uuid=player.getUniqueId(); current=player.getLocation().clone(); last=current.clone(); lastMovementNanos=System.nanoTime(); }
+    public PlayerData(Player player){
+        uuid=player.getUniqueId();
+        current=player.getLocation().clone();
+        last=current.clone();
+        lastMovementNanos=System.nanoTime();
+    }
+
     public UUID uuid(){return uuid;}
     public Location last(){return last;}
     public Location current(){return current;}
-    public void update(Location next){ last=current; current=next.clone(); yawDelta=angleDelta(current.getYaw(),last.getYaw()); pitchDelta=current.getPitch()-last.getPitch(); horizontalSpeed=Math.hypot(current.getX()-last.getX(),current.getZ()-last.getZ()); verticalDelta=current.getY()-last.getY(); movementSamples++; }
-    private double angleDelta(float a,float b){ double d=a-b; while(d>180)d-=360; while(d<-180)d+=360; return d; }
+
+    public void update(Location next){
+        long now=System.nanoTime();
+        last=current;
+        current=next.clone();
+        long delta=now-lastMovementNanos;
+        if(delta>0){
+            movementIntervalMs=delta/1_000_000.0;
+            movementCount++;
+            double diff=movementIntervalMs-movementMean;
+            movementMean+=diff/movementCount;
+            movementM2+=diff*(movementIntervalMs-movementMean);
+        }
+        yawDelta=angleDelta(current.getYaw(),last.getYaw());
+        pitchDelta=current.getPitch()-last.getPitch();
+        horizontalSpeed=Math.hypot(current.getX()-last.getX(),current.getZ()-last.getZ());
+        verticalDelta=current.getY()-last.getY();
+        movementSamples++;
+    }
+
+    private double angleDelta(float a,float b){
+        double d=a-b;
+        while(d>180)d-=360;
+        while(d<-180)d+=360;
+        return d;
+    }
+
     public Vector velocity(){return lastVelocity;}
     public void velocity(Vector v){lastVelocity=v.clone();lastVelocityNanos=System.nanoTime();}
     public long lastVelocityNanos(){return lastVelocityNanos;}
@@ -46,15 +88,31 @@ public final class PlayerData {
     public void attackTick(long tick){lastAttackTick=tick;}
     public void touchMovement(){lastMovementNanos=System.nanoTime();}
     public long lastAttackNanos(){return lastAttackNanos;}
-    public void touchAttack(){lastAttackNanos=System.nanoTime(); attackSamples++;}
+
+    public void touchAttack(){
+        long now=System.nanoTime();
+        if(lastAttackNanos>0){
+            long delta=now-lastAttackNanos;
+            if(delta>0){
+                attackIntervalMs=delta/1_000_000.0;
+                attackCount++;
+                double diff=attackIntervalMs-attackMean;
+                attackMean+=diff/attackCount;
+                attackM2+=diff*(attackIntervalMs-attackMean);
+            }
+        }
+        lastAttackNanos=now;
+        attackSamples++;
+    }
+
     public long lastTeleportNanos(){return lastTeleportNanos;}
     public void touchTeleport(){lastTeleportNanos=System.nanoTime();}
     public long lastDamageNanos(){return lastDamageNanos;}
     public void touchDamage(){lastDamageNanos=System.nanoTime();}
     public double violation(){return violation;}
     public double confidence(){return confidence;}
-    public void addViolation(double v){violation=Math.min(100,Math.max(0,violation+v));}
-    public void decay(double amount){violation=Math.max(0,violation-amount); confidence=Math.max(0,confidence-amount*0.03);}
+    public void addViolation(double v){violation=Math.min(100,Math.max(0,violation+Math.max(0,v)));}
+    public void decay(double amount){violation=Math.max(0,violation-amount);confidence=Math.max(0,confidence-amount*.03);}
     public void confidence(double c){confidence=Math.max(0,Math.min(1,c));}
     public Deque<Evidence> evidence(){return evidence;}
     public void addEvidence(Evidence e,int max){evidence.addFirst(e);while(evidence.size()>max)evidence.removeLast();}
@@ -62,12 +120,18 @@ public final class PlayerData {
     public double pitchDelta(){return pitchDelta;}
     public double horizontalSpeed(){return horizontalSpeed;}
     public double verticalDelta(){return verticalDelta;}
+    public double lastExpectedSpeed(){return lastExpectedSpeed;}
+    public void lastExpectedSpeed(double v){lastExpectedSpeed=v;}
+    public double movementIntervalMs(){return movementIntervalMs;}
+    public double attackIntervalMs(){return attackIntervalMs;}
+    public double movementVariance(){return movementCount>1?movementM2/(movementCount-1):0;}
+    public double attackVariance(){return attackCount>1?attackM2/(attackCount-1):0;}
+    public double movementStdDev(){return Math.sqrt(movementVariance());}
+    public double attackStdDev(){return Math.sqrt(attackVariance());}
     public int movementSamples(){return movementSamples;}
     public int attackSamples(){return attackSamples;}
     public int consecutiveMovementAnomalies(){return consecutiveMovementAnomalies;}
-    public void movementAnomaly(boolean anomaly){consecutiveMovementAnomalies=anomaly?consecutiveMovementAnomalies+1:Math.max(0,consecutiveMovementAnomalies-1);}
+    public void movementAnomaly(boolean anomaly){consecutiveMovementAnomalies=anomaly?Math.min(100,consecutiveMovementAnomalies+1):Math.max(0,consecutiveMovementAnomalies-1);}
     public int consecutiveCombatAnomalies(){return consecutiveCombatAnomalies;}
-    public void combatAnomaly(boolean anomaly){consecutiveCombatAnomalies=anomaly?consecutiveCombatAnomalies+1:Math.max(0,consecutiveCombatAnomalies-1);}
-    public double lastExpectedSpeed(){return lastExpectedSpeed;}
-    public void lastExpectedSpeed(double v){lastExpectedSpeed=v;}
+    public void combatAnomaly(boolean anomaly){consecutiveCombatAnomalies=anomaly?Math.min(100,consecutiveCombatAnomalies+1):Math.max(0,consecutiveCombatAnomalies-1);}
 }
