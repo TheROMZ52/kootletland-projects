@@ -23,7 +23,7 @@ public final class KacCommand implements CommandExecutor, TabCompleter {
             case "debug","verbose" -> {if(a.length<2){s.sendMessage("§cPlayer required.");return true;} Player p=Bukkit.getPlayerExact(a[1]); if(p==null){s.sendMessage("§cPlayer not found.");return true;} s.sendMessage(engine.debug(p)); if(a[0].equalsIgnoreCase("verbose")) engine.get(p.getUniqueId()).evidence().stream().limit(8).forEach(e->s.sendMessage("§8- §e"+e.check()+" §7conf="+String.format("%.1f%%",e.confidence()*100)+" §7vl="+String.format("%.2f",e.violation())+" §7"+e.data()));}
             case "stats" -> s.sendMessage("§eKootletAC §7checks="+engine.checks()+" detections="+engine.detections()+" alerts="+engine.alerts()+" players="+engine.players().size()+" uptime="+engine.uptime()/1000+"s");
             case "alerts" -> s.sendMessage("§eKootletAC §7alerts are " + (plugin.getConfig().getBoolean("settings.alerts")?"enabled":"disabled")+". Automatic punishment: §cOFF");
-            case "reload" -> {plugin.reloadConfig();s.sendMessage("§aKootletAC configuration reloaded without resetting player state.");}
+            case "reload" -> {plugin.reloadConfig();engine.reloadChecks();s.sendMessage("§aKootletAC configuration reloaded without resetting player state.");}
             default -> s.sendMessage("§cUnknown subcommand.");
         } return true;
     }
