@@ -37,7 +37,8 @@ public final class PlayerData {
     public void update(Location next){ last=current; current=next.clone(); yawDelta=angleDelta(current.getYaw(),last.getYaw()); pitchDelta=current.getPitch()-last.getPitch(); horizontalSpeed=Math.hypot(current.getX()-last.getX(),current.getZ()-last.getZ()); verticalDelta=current.getY()-last.getY(); movementSamples++; }
     private double angleDelta(float a,float b){ double d=a-b; while(d>180)d-=360; while(d<-180)d+=360; return d; }
     public Vector velocity(){return lastVelocity;}
-    public void velocity(Vector v){lastVelocity=v.clone();}
+    public void velocity(Vector v){lastVelocity=v.clone();lastVelocityNanos=System.nanoTime();}
+    public long lastVelocityNanos(){return lastVelocityNanos;}
     public long lastMovementNanos(){return lastMovementNanos;}
     public long lastMovementTick(){return lastMovementTick;}
     public void movementTick(long tick){lastMovementTick=tick;}
