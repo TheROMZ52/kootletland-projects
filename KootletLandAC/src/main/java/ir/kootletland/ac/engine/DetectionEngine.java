@@ -14,9 +14,18 @@ import java.time.Instant;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.function.Consumer;
+import java.util.concurrent.ConcurrentHashMap;
 
 public final class DetectionEngine {
     private final PhysicsEngine physics=new PhysicsEngine();
+    private final Map<String,Boolean> enabled=new ConcurrentHashMap<>();
+
+    public DetectionEngine(){
+        for(String check:new String[]{"Speed","Fly","NoFall","Jesus","Step","HighJump","LongJump","Timer","Phase","NoWeb","InvalidMovement","Strafe","Motion","Reach","KillAura","Aim","AutoClicker","Velocity"})enabled.put(check,true);
+    }
+
+    public void setEnabled(String check,boolean value){enabled.put(check,value);}
+    public boolean enabled(String check){return enabled.getOrDefault(check,true);}
 
     public void movement(Player p,PlayerData d,Consumer<Evidence> sink){
         if(physics.contextualGrace(p,d)){d.movementAnomaly(false);return;}
@@ -69,6 +78,7 @@ public final class DetectionEngine {
         confidence=Math.max(.25,Math.min(.995,confidence));
 
         String check=invalid?"InvalidMovement":speed?"Speed":fly?"Fly":highJump?"HighJump":step?"Step":noFall?"NoFall":jesus?"Jesus":noweb?"NoWeb":longJump?"LongJump":timer?"Timer":phase?"Phase":strafe?"Strafe":"Motion";
+        if(!enabled(check))return;
         Map<String,Object> data=new HashMap<>();
         data.put("expected",expected);
         data.put("actual",actual);
@@ -120,6 +130,7 @@ public final class DetectionEngine {
         confidence=Math.max(.25,Math.min(.99,confidence));
 
         String check=killaura?"KillAura":reach?"Reach":periodic?"AutoClicker":"Aim";
+        if(!enabled(check))return;
         Map<String,Object> data=new HashMap<>();
         data.put("distanceToHitbox",distance);
         data.put("pingMs",ping);
