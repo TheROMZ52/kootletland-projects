@@ -14,6 +14,8 @@ public final class AntiCheatEngine {
     private final Plugin plugin;
     private final DetectionEngine detection=new DetectionEngine();
     private final CorrelationEngine correlation=new CorrelationEngine();
+    private final BufferEngine buffer=new BufferEngine();
+    private final java.util.concurrent.CopyOnWriteArrayList<java.util.function.Consumer<Evidence>> listeners=new java.util.concurrent.CopyOnWriteArrayList<>();
     private final Map<UUID,PlayerData> players=new ConcurrentHashMap<>();
     private final Map<UUID,Long> lastAlerts=new ConcurrentHashMap<>();
     private long checks;
@@ -30,6 +32,7 @@ public final class AntiCheatEngine {
             for(Player p:Bukkit.getOnlinePlayers()){
                 PlayerData d=add(p);
                 d.decay(0.035);
+                buffer.decay(p.getUniqueId(),0.06);
             }
             lastAlerts.entrySet().removeIf(e->System.currentTimeMillis()-e.getValue()>60_000L);
         },20L,20L);
@@ -50,6 +53,7 @@ public final class AntiCheatEngine {
     public void remove(UUID id){
         players.remove(id);
         correlation.clear(id);
+        buffer.clear(id);
         lastAlerts.remove(id);
     }
 
@@ -58,8 +62,8 @@ public final class AntiCheatEngine {
     public void move(Player p){
         if(p.hasPermission("kootletlandac.bypass"))return;
         PlayerData d=add(p);
-        detection.movement(p,d,e->record(p,e));
         d.update(p.getLocation());
+        detection.movement(p,d,e->record(p,e));
         d.touchMovement();
         checks++;
     }
@@ -78,17 +82,20 @@ public final class AntiCheatEngine {
 
     private void record(Player p,Evidence e){
         detections++;
+        listeners.forEach(listener->{try{listener.accept(e);}catch(Throwable ignored){}});
         PlayerData d=add(p);
         boolean corroborated=correlation.add(p.getUniqueId(),e);
         double confidence=e.confidence();
         if(corroborated)confidence=Math.min(.995,confidence+.08);
-        d.addViolation(e.violation()*(corroborated?1.15:1.0));
+        double suspicion=buffer.add(p.getUniqueId(),e.violation()*(corroborated?1.15:1.0));
+        d.addViolation(Math.min(1.5,e.violation()*(corroborated?1.15:1.0)));
+        d.confidence(Math.max(d.confidence(),confidence));
         d.confidence(confidence);
         d.addEvidence(e,plugin.getConfig().getInt("settings.max-evidence-per-player",80));
 
         double threshold=plugin.getConfig().getDouble("settings.confidence-warning-threshold",.82);
         double vlThreshold=plugin.getConfig().getDouble("settings.violation-warning-threshold",5.0);
-        if(confidence>=threshold&&d.violation()>=vlThreshold)alert(p,e,corroborated);
+        if(confidence>=threshold&&d.violation()>=vlThreshold&&suspicion>=1.5)alert(p,e,corroborated);
     }
 
     private void alert(Player p,Evidence e,boolean corroborated){
@@ -109,6 +116,8 @@ public final class AntiCheatEngine {
     public long alerts(){return alerts;}
     public long uptime(){return System.currentTimeMillis()-started;}
     public Map<UUID,PlayerData> players(){return players;}
+    public void listen(java.util.function.Consumer<Evidence> listener){if(listener!=null)listeners.add(listener);}
+    public void submit(UUID uuid,Evidence evidence){Player p=Bukkit.getPlayer(uuid);if(p!=null&&evidence!=null)record(p,evidence);}
 
     public String debug(Player p){
         PlayerData d=get(p.getUniqueId());
