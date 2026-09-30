@@ -2,6 +2,7 @@ package ir.kootletland.ac.engine;
 
 import ir.kootletland.ac.model.Evidence;
 import ir.kootletland.ac.model.PlayerData;
+import org.bukkit.Bukkit;
 import org.bukkit.GameMode;
 import org.bukkit.FluidCollisionMode;
 import org.bukkit.Location;
@@ -20,6 +21,7 @@ import java.util.concurrent.ConcurrentHashMap;
 public final class DetectionEngine {
     private final PhysicsEngine physics=new PhysicsEngine();
     private final ContextEngine context=new ContextEngine();
+    private final PredictionEngine prediction=new PredictionEngine();
     private final Map<String,Boolean> enabled=new ConcurrentHashMap<>();
 
     public DetectionEngine(){
@@ -52,7 +54,7 @@ public final class DetectionEngine {
         boolean speedPattern=speedZ>3.25&&actual>expected*.96&&d.speedCount()>24;
         boolean fly=!p.isOnGround()&&!p.isInWater()&&!p.isInLava()&&d.movementSamples()>8
                 &&d.verticalDelta()>.30&&d.velocity().getY()<.08&&d.lastExpectedSpeed()>.05;
-        boolean highJump=!p.isOnGround()&&!p.isInWater()&&d.verticalDelta()>.72&&d.movementSamples()>6;
+        boolean highJump=prediction.anomalousVertical(p,d)&&d.verticalDelta()>.72;
         boolean step=d.verticalDelta()>.72&&d.verticalDelta()<1.35&&d.horizontalSpeed()>.07&&p.isOnGround();
         boolean noFall=p.getFallDistance()>4.0&&p.isOnGround()&&d.verticalDelta()<=.03&&d.movementSamples()>12;
         Material block=p.getLocation().getBlock().getType();
@@ -110,6 +112,9 @@ public final class DetectionEngine {
         data.put("dy",d.verticalDelta());
         data.put("dz",now.getZ()-d.last().getZ());
         data.put("velocityY",d.velocity().getY());
+        data.put("predictedVertical",prediction.expectedVertical(p,d));
+        data.put("verticalDeviation",prediction.verticalDeviation(p,d));
+        data.put("tps",Bukkit.getTPS()[0]);
         data.put("onGround",p.isOnGround());
         data.put("signals",signals);
         data.put("velocityAgeMs",velocityAge/1_000_000.0);
