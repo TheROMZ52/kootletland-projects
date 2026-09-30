@@ -21,7 +21,7 @@ public final class ContextEngine {
     }
 
     private boolean isClimbable(Material m){
-        return m==Material.LADDER||m==Material.VINE||m==Material.SCAFFOLDING||m==Material.WEEPING_VINES||m==Material.WEEPING_VINES_PLANT||m==Material.TWISTING_VINES||m==Material.TWISTING_VINES_PLANT;
+        return m==Material.LADDER||m==Material.VINE||m==Material.SCAFFOLDING;
     }
 
     public boolean invalid(Player p) {
