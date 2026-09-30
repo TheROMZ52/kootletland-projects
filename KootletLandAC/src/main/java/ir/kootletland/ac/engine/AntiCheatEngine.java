@@ -6,6 +6,7 @@ import ir.kootletland.ac.metrics.Metrics;
 import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
 import org.bukkit.plugin.Plugin;
+import org.bukkit.scheduler.BukkitTask;
 
 import java.util.Map;
 import java.util.UUID;
@@ -25,13 +26,15 @@ public final class AntiCheatEngine {
     private long detections;
     private long alerts;
     private long started;
+    private BukkitTask movementTask;
+    private BukkitTask maintenanceTask;
 
     public AntiCheatEngine(Plugin plugin){this.plugin=plugin;reloadChecks();}
 
     public void start(){
         started=System.currentTimeMillis();
         for(Player p:Bukkit.getOnlinePlayers())add(p);
-        Bukkit.getScheduler().runTaskTimer(plugin,()->{
+        movementTask=maintenanceTask=Bukkit.getScheduler().runTaskTimer(plugin,()->{
             for(UUID id:pendingMoves){
                 Player p=Bukkit.getPlayer(id);
                 if(p!=null) processMove(p);
@@ -59,6 +62,8 @@ public final class AntiCheatEngine {
     }
 
     public void shutdown(){
+        if(movementTask!=null)movementTask.cancel();
+        if(maintenanceTask!=null)maintenanceTask.cancel();
         pendingMoves.clear();
         players.clear();        lastAlerts.clear();
     }
