@@ -3,6 +3,7 @@ package ir.kootletland.ac.engine;
 import ir.kootletland.ac.model.Evidence;
 import ir.kootletland.ac.model.PlayerData;
 import org.bukkit.GameMode;
+import org.bukkit.FluidCollisionMode;
 import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.entity.Entity;
@@ -124,7 +125,7 @@ public final class DetectionEngine {
         double pitch=Math.abs(d.pitchDelta());
         Vector hitPoint=new Vector(clamp(eye.getX(),box.getMinX(),box.getMaxX()),clamp(eye.getY(),box.getMinY(),box.getMaxY()),clamp(eye.getZ(),box.getMinZ(),box.getMaxZ()));
         Vector line=hitPoint.clone().subtract(eye);
-        boolean lineOfSight=line.lengthSquared()<=.0001||attacker.getWorld().rayTraceBlocks(attacker.getEyeLocation(),line.clone().normalize(),line.length(),true)==null;
+        boolean lineOfSight=line.lengthSquared()<=.0001||attacker.getWorld().rayTraceBlocks(attacker.getEyeLocation(),line.clone().normalize(),line.length(),FluidCollisionMode.NEVER,true)==null;
         if(!lineOfSight&&distance>2.9)return;
 
         boolean reach=distance>3.15+allowance&&distance<7.5;
