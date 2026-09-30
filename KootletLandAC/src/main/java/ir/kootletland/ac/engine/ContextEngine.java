@@ -13,6 +13,7 @@ public final class ContextEngine {
         if (p.isSwimming() || p.isInWater() || p.isInLava()) grace += .45;
         if (d.velocity().lengthSquared() > .04) grace += Math.min(.35, d.velocity().length() * .12);
         Material m = p.getLocation().getBlock().getType();
+        Material below = p.getLocation().clone().subtract(0, 1, 0).getBlock().getType();
         if (m == Material.ICE || m == Material.PACKED_ICE || m == Material.BLUE_ICE || m == Material.FROSTED_ICE) grace += .25;
         if (m == Material.SLIME_BLOCK || m == Material.HONEY_BLOCK) grace += .35;
         if (m == Material.POWDER_SNOW || below == Material.POWDER_SNOW) grace += .40;
