@@ -28,6 +28,9 @@ public final class PlayerData {
     private double yawDelta;
     private double pitchDelta;
     private double horizontalSpeed;
+    private double speedMean;
+    private double speedM2;
+    private long speedCount;
     private double verticalDelta;
     private double lastExpectedSpeed;
     private double movementIntervalMs;
@@ -67,6 +70,12 @@ public final class PlayerData {
         yawDelta=angleDelta(current.getYaw(),last.getYaw());
         pitchDelta=current.getPitch()-last.getPitch();
         horizontalSpeed=Math.hypot(current.getX()-last.getX(),current.getZ()-last.getZ());
+        if(Double.isFinite(horizontalSpeed)){
+            speedCount++;
+            double diff=horizontalSpeed-speedMean;
+            speedMean+=diff/speedCount;
+            speedM2+=diff*(horizontalSpeed-speedMean);
+        }
         verticalDelta=current.getY()-last.getY();
         movementSamples++;
     }
@@ -119,6 +128,10 @@ public final class PlayerData {
     public double yawDelta(){return yawDelta;}
     public double pitchDelta(){return pitchDelta;}
     public double horizontalSpeed(){return horizontalSpeed;}
+    public double speedMean(){return speedMean;}
+    public double speedVariance(){return speedCount>1?speedM2/(speedCount-1):0;}
+    public double speedStdDev(){return Math.sqrt(speedVariance());}
+    public long speedCount(){return speedCount;}
     public double verticalDelta(){return verticalDelta;}
     public double lastExpectedSpeed(){return lastExpectedSpeed;}
     public void lastExpectedSpeed(double v){lastExpectedSpeed=v;}
