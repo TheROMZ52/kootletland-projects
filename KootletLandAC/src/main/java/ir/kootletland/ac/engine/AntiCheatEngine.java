@@ -28,20 +28,22 @@ public final class AntiCheatEngine {
     private long started;
     private BukkitTask movementTask;
     private BukkitTask maintenanceTask;
+    private long serverTick;
 
     public AntiCheatEngine(Plugin plugin){this.plugin=plugin;reloadChecks();}
 
     public void start(){
         started=System.currentTimeMillis();
         for(Player p:Bukkit.getOnlinePlayers())add(p);
-        movementTask=maintenanceTask=Bukkit.getScheduler().runTaskTimer(plugin,()->{
+        movementTask=Bukkit.getScheduler().runTaskTimer(plugin,()->{
+            serverTick++;
             for(UUID id:pendingMoves){
                 Player p=Bukkit.getPlayer(id);
                 if(p!=null) processMove(p);
             }
             pendingMoves.clear();
         },1L,1L);
-        Bukkit.getScheduler().runTaskTimer(plugin,()->{
+        maintenanceTask=Bukkit.getScheduler().runTaskTimer(plugin,()->{
             for(Player p:Bukkit.getOnlinePlayers()){
                 PlayerData d=add(p);
                 d.decay(0.035);
@@ -89,6 +91,7 @@ public final class AntiCheatEngine {
         PlayerData d=add(p);
         long started=System.nanoTime();
         d.update(p.getLocation());
+        d.movementTick(serverTick);
         detection.movement(p,d,e->record(p,e));
         d.touchMovement();
         metrics.check(System.nanoTime()-started);
@@ -100,6 +103,7 @@ public final class AntiCheatEngine {
         PlayerData d=add(p);
         long started=System.nanoTime();
         detection.combat(p,target,d,e->record(p,e));
+        d.attackTick(serverTick);
         d.touchAttack();
         metrics.check(System.nanoTime()-started);
         checks++;
