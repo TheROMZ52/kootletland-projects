@@ -14,11 +14,16 @@ public final class ContextEngine {
         if (d.velocity().lengthSquared() > .04) grace += Math.min(.35, d.velocity().length() * .12);
         Material m = p.getLocation().getBlock().getType();
         Material below = p.getLocation().clone().subtract(0, 1, 0).getBlock().getType();
-        if (m == Material.ICE || m == Material.PACKED_ICE || m == Material.BLUE_ICE || m == Material.FROSTED_ICE) grace += .25;
-        if (m == Material.SLIME_BLOCK || m == Material.HONEY_BLOCK) grace += .35;
+        Material support = PhysicsEngine.supportBlock(p);
+        if (isIce(m) || isIce(support)) grace += .25;
+        if (m == Material.SLIME_BLOCK || m == Material.HONEY_BLOCK || support == Material.SLIME_BLOCK || support == Material.HONEY_BLOCK) grace += .35;
         if (m == Material.POWDER_SNOW || below == Material.POWDER_SNOW) grace += .40;
         if (m == Material.BUBBLE_COLUMN) grace += .50;
         return Math.min(.9, grace);
+    }
+
+    private boolean isIce(Material m) {
+        return m == Material.ICE || m == Material.PACKED_ICE || m == Material.BLUE_ICE || m == Material.FROSTED_ICE;
     }
 
     private boolean isClimbable(Material m){

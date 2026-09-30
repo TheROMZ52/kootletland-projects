@@ -20,7 +20,7 @@ public final class KootletLandAC extends JavaPlugin {
         getCommand("kac").setTabCompleter(command);
         engine.start();
         diagnostics();
-        getLogger().info("KootletLandAC 1.0.0 enabled. Automatic punishment is permanently disabled.");
+        getLogger().info("KootletLandAC "+getDescription().getVersion()+" enabled. Automatic punishment is permanently disabled.");
     }
 
     private void diagnostics() {

@@ -29,6 +29,9 @@ public final class AntiCheatEngine {
     private BukkitTask movementTask;
     private BukkitTask maintenanceTask;
     private long serverTick;
+    private final Map<String,Integer> checkErrors=new ConcurrentHashMap<>();
+    private final java.util.Set<String> faulted=ConcurrentHashMap.newKeySet();
+    private static final int MAX_CHECK_ERRORS=25;
 
     public AntiCheatEngine(Plugin plugin){this.plugin=plugin;reloadChecks();}
 
@@ -37,11 +40,14 @@ public final class AntiCheatEngine {
         for(Player p:Bukkit.getOnlinePlayers())add(p);
         movementTask=Bukkit.getScheduler().runTaskTimer(plugin,()->{
             serverTick++;
-            for(UUID id:pendingMoves){
-                Player p=Bukkit.getPlayer(id);
-                if(p!=null) processMove(p);
-            }
+            // Snapshot first: one failing player must never leave the queue stuck and re-fail every tick.
+            java.util.List<UUID> ids=new java.util.ArrayList<>(pendingMoves);
             pendingMoves.clear();
+            for(UUID id:ids){
+                Player p=Bukkit.getPlayer(id);
+                if(p==null)continue;
+                try{processMove(p);}catch(Throwable t){onCheckError("movement",t);}
+            }
         },1L,1L);
         maintenanceTask=Bukkit.getScheduler().runTaskTimer(plugin,()->{
             for(Player p:Bukkit.getOnlinePlayers()){
@@ -58,10 +64,20 @@ public final class AntiCheatEngine {
         for(String[] x:groups){
             boolean movement=plugin.getConfig().getBoolean("checks.movement."+x[0],false);
             boolean combat=plugin.getConfig().getBoolean("checks.combat."+x[0],false);
-            boolean enabled=movement||combat||x[1].equals("InvalidMovement");
+            boolean enabled=movement||combat;
             detection.setEnabled(x[1],enabled);
         }
+        checkErrors.clear();
+        faulted.clear();
     }
+
+    private void onCheckError(String group,Throwable t){
+        int n=checkErrors.merge(group,1,Integer::sum);
+        if(n==1)plugin.getLogger().log(java.util.logging.Level.SEVERE,"KootletLandAC "+group+" check error (isolated, other checks continue)",t);
+        if(n>=MAX_CHECK_ERRORS&&faulted.add(group))plugin.getLogger().severe("KootletLandAC disabled the "+group+" checks after "+n+" errors. Fix the cause and run /kac reload.");
+    }
+
+    public java.util.Set<String> faultedChecks(){return java.util.Set.copyOf(faulted);}
 
     public void shutdown(){
         if(movementTask!=null)movementTask.cancel();
@@ -84,9 +100,12 @@ public final class AntiCheatEngine {
     public void move(Player p){
         if(p.hasPermission("kootletlandac.bypass"))return;
         pendingMoves.add(p.getUniqueId());
+        if(faulted.contains("timer"))return;
+        try{detection.timer(p,add(p),e->record(p,e));}catch(Throwable t){onCheckError("timer",t);}
     }
 
     private void processMove(Player p){
+        if(faulted.contains("movement"))return;
         if(!p.isOnline()||p.hasPermission("kootletlandac.bypass"))return;
         PlayerData d=add(p);
         long started=System.nanoTime();
@@ -101,15 +120,16 @@ public final class AntiCheatEngine {
     public void attack(Player p,org.bukkit.entity.Entity target){
         if(p.hasPermission("kootletlandac.bypass"))return;
         PlayerData d=add(p);
+        if(faulted.contains("combat"))return;
         long started=System.nanoTime();
-        detection.combat(p,target,d,e->record(p,e));
+        try{detection.combat(p,target,d,e->record(p,e));}catch(Throwable t){onCheckError("combat",t);}
         d.attackTick(serverTick);
         d.touchAttack();
         metrics.check(System.nanoTime()-started);
         checks++;
     }
 
-    public void velocity(Player p){add(p).velocity(p.getVelocity());}
+    public void velocity(Player p,org.bukkit.util.Vector applied){add(p).velocity(applied==null?p.getVelocity():applied);}
     public void teleport(Player p){add(p).touchTeleport();}
     public void damage(Player p){add(p).touchDamage();}
 
@@ -140,7 +160,7 @@ public final class AntiCheatEngine {
         lastAlerts.put(p.getUniqueId(),now);
         alerts++;
         metrics.warning();
-        String msg="§c[KootletAC] §f"+p.getName()+" §7→ §e"+e.check()+" §7confidence=§f"+String.format("%.1f",e.confidence()*100)+"%% §7VL=§f"+String.format("%.2f",add(p).violation())+(corroborated?" §7correlated":"");
+        String msg="§c[KootletAC] §f"+p.getName()+" §7→ §e"+e.check()+" §7confidence=§f"+String.format("%.1f",e.confidence()*100)+"% §7VL=§f"+String.format("%.2f",add(p).violation())+(corroborated?" §7correlated":"");
         Bukkit.getOnlinePlayers().stream().filter(x->x.hasPermission("kootletlandac.alerts")).forEach(x->x.sendMessage(msg));
         plugin.getLogger().warning(msg.replaceAll("§[0-9a-fk-or]",""));
     }

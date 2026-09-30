@@ -3,17 +3,21 @@ plugins {
 }
 
 group = 'ir.kootletland'
-version = '1.0.0'
+version = '1.0.1'
 
 java { toolchain { languageVersion = JavaLanguageVersion.of(21) } }
 
 
 dependencies {
     compileOnly 'io.papermc.paper:paper-api:1.21.8-R0.1-SNAPSHOT'
+    testImplementation 'org.junit.jupiter:junit-jupiter:5.11.4'
+    testRuntimeOnly 'org.junit.platform:junit-platform-launcher:1.11.4'
 }
 
 tasks.withType(JavaCompile).configureEach { options.encoding = 'UTF-8'; options.release = 21 }
 
 processResources { filesMatching('plugin.yml') { expand(version: project.version) } }
+
+tasks.named('test') { useJUnitPlatform() }
 
 // KootletLandAC build configuration

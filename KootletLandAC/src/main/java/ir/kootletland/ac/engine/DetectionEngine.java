@@ -2,6 +2,7 @@ package ir.kootletland.ac.engine;
 
 import ir.kootletland.ac.model.Evidence;
 import ir.kootletland.ac.model.PlayerData;
+import ir.kootletland.ac.model.TimerBalance;
 import org.bukkit.Bukkit;
 import org.bukkit.GameMode;
 import org.bukkit.FluidCollisionMode;
@@ -32,6 +33,7 @@ public final class DetectionEngine {
     public boolean enabled(String check){return enabled.getOrDefault(check,true);}
 
     public void movement(Player p,PlayerData d,Consumer<Evidence> sink){
+        jesus(p,d,sink);
         if(physics.contextualGrace(p,d)||context.movementModifier(p,d)>.86){d.movementAnomaly(false);return;}
         Location now=d.current();
         if(!finite(now)){d.movementAnomaly(true);emit(p,"InvalidMovement",.995,2.0,sink,Map.of("reason","non_finite_coordinates"));return;}
@@ -54,21 +56,20 @@ public final class DetectionEngine {
         boolean speedPattern=speedZ>3.25&&actual>expected*.96&&d.speedCount()>24;
         boolean fly=!p.isOnGround()&&!p.isInWater()&&!p.isInLava()&&d.movementSamples()>8
                 &&d.verticalDelta()>.30&&d.velocity().getY()<.08&&d.lastExpectedSpeed()>.05;
-        boolean highJump=prediction.anomalousVertical(p,d)&&d.verticalDelta()>.72;
-        boolean step=d.verticalDelta()>.72&&d.verticalDelta()<1.35&&d.horizontalSpeed()>.07&&p.isOnGround();
+        double jump=PhysicsEngine.jumpBonus(p);
+        boolean highJump=prediction.anomalousVertical(p,d)&&d.verticalDelta()>.72+jump;
+        boolean step=d.verticalDelta()>.72+jump&&d.verticalDelta()<1.35+jump&&d.horizontalSpeed()>.07&&p.isOnGround();
         boolean noFall=p.getFallDistance()>4.0&&p.isOnGround()&&d.verticalDelta()<=.03&&d.movementSamples()>12;
         Material block=p.getLocation().getBlock().getType();
-        boolean jesus=p.isInWater()&&!p.isSwimming()&&Math.abs(d.verticalDelta())<.01&&d.horizontalSpeed()>.12;
         boolean noweb=block==Material.COBWEB&&d.horizontalSpeed()>.12&&!p.isSneaking();
-        boolean longJump=!p.isOnGround()&&d.verticalDelta()>.08&&d.verticalDelta()<.65&&ratio>1.42;
-        boolean timer=d.movementSamples()>35&&tickRatio>1.18&&intervalDeviation>.22&&d.movementStdDev()<24.0;
+        boolean longJump=!p.isOnGround()&&d.verticalDelta()>.08&&d.verticalDelta()<.65+jump&&ratio>1.42;
         boolean phase=insideSolid(p)&&d.horizontalSpeed()>.08&&!p.isSneaking();
         boolean strafe=!p.isOnGround()&&Math.abs(d.yawDelta())>115&&actual>expected*1.15;
         boolean motion=!p.isOnGround()&&Math.abs(d.verticalDelta())>.42&&Math.abs(d.velocity().getY())<.04;
         long velocityAge=System.nanoTime()-d.lastVelocityNanos();
         boolean velocity=velocityAge>120_000_000L&&velocityAge<900_000_000L&&d.velocity().lengthSquared()>.09&&actual<Math.max(.035,d.velocity().clone().setY(0).length()*.18);
 
-        int signals=(invalid?1:0)+(speed?1:0)+(speedPattern?1:0)+(fly?1:0)+(highJump?1:0)+(step?1:0)+(noFall?1:0)+(jesus?1:0)+(noweb?1:0)+(longJump?1:0)+(timer?1:0)+(phase?1:0)+(strafe?1:0)+(motion?1:0)+(velocity?1:0);
+        int signals=(invalid?1:0)+(speed?1:0)+(speedPattern?1:0)+(fly?1:0)+(highJump?1:0)+(step?1:0)+(noFall?1:0)+(noweb?1:0)+(longJump?1:0)+(phase?1:0)+(strafe?1:0)+(motion?1:0)+(velocity?1:0);
         d.movementAnomaly(signals>0);
         if(signals==0)return;
 
@@ -79,10 +80,8 @@ public final class DetectionEngine {
         confidence+=highJump?.12:0;
         confidence+=step?.08:0;
         confidence+=noFall?.10:0;
-        confidence+=jesus?.09:0;
         confidence+=noweb?.09:0;
         confidence+=longJump?.10:0;
-        confidence+=timer?.08:0;
         confidence+=phase?.10:0;
         confidence+=strafe?.06:0;
         confidence+=motion?.07:0;
@@ -92,8 +91,13 @@ public final class DetectionEngine {
         if(invalid)confidence=.995;
         confidence=Math.max(.25,Math.min(.995,confidence));
 
-        String check=invalid?"InvalidMovement":speed?"Speed":speedPattern?"Speed":fly?"Fly":highJump?"HighJump":step?"Step":noFall?"NoFall":jesus?"Jesus":noweb?"NoWeb":longJump?"LongJump":timer?"Timer":phase?"Phase":strafe?"Strafe":velocity?"Velocity":"Motion";
-        if(!enabled(check))return;
+        String[] names={"InvalidMovement","Speed","Speed","Fly","HighJump","Step","NoFall","NoWeb","LongJump","Phase","Strafe","Velocity","Motion"};
+        boolean[] flags={invalid,speed,speedPattern,fly,highJump,step,noFall,noweb,longJump,phase,strafe,velocity,motion};
+        String check=null;
+        for(int i=0;i<names.length;i++){
+            if(flags[i]&&enabled(names[i])){check=names[i];break;}
+        }
+        if(check==null)return;
         Map<String,Object> data=new HashMap<>();
         data.put("expected",expected);
         data.put("actual",actual);
@@ -181,9 +185,44 @@ public final class DetectionEngine {
     }
 
     private boolean insideSolid(Player p){
-        Location l=p.getLocation();
-        Material m=p.getWorld().getBlockAt(l).getType();
-        return m.isSolid()&&!m.isAir()&&!p.isInsideVehicle();
+        if(p.isInsideVehicle()||p.isGliding()||p.isRiptiding())return false;
+        BoundingBox box=p.getBoundingBox().expand(-.12);
+        return p.getWorld().hasCollisionsIn(box);
+    }
+
+    /** Timer: movement packets arriving faster than 20 per second, measured as accumulated drift. */
+    public void timer(Player p,PlayerData d,Consumer<Evidence> sink){
+        TimerBalance timer=d.timer();
+        double balance=timer.tick(System.nanoTime());
+        double tps=Bukkit.getTPS()[0];
+        if(tps<19.0||System.nanoTime()-d.lastTeleportNanos()<2_000_000_000L){timer.reset();return;}
+        if(timer.samples()<40||balance<=200.0||!enabled("Timer"))return;
+        double confidence=Math.max(.3,Math.min(.9,.45+(balance-200.0)/1500.0)-physics.latencyFactor(p)*.15);
+        timer.adjust(-150.0);
+        Map<String,Object> data=new HashMap<>();
+        data.put("timerBalanceMs",balance);
+        data.put("tps",tps);
+        data.put("pingMs",p.getPing());
+        data.put("samples",timer.samples());
+        emit(p,"Timer",confidence,Math.max(.06,(confidence-.48)*2.6),sink,data);
+    }
+
+    /** Jesus: walking on top of liquid. Runs before the water grace, which used to make it unreachable. */
+    private void jesus(Player p,PlayerData d,Consumer<Evidence> sink){
+        boolean candidate=!p.isInsideVehicle()&&!p.isFlying()&&!p.isGliding()&&!p.isSwimming()&&!p.isInWater()
+                &&!p.getGameMode().isInvulnerable()
+                &&p.getLocation().getBlock().getType().isAir()
+                &&p.getLocation().clone().subtract(0,1,0).getBlock().isLiquid()
+                &&d.horizontalSpeed()>.10&&Math.abs(d.verticalDelta())<.01
+                &&System.nanoTime()-d.lastTeleportNanos()>1_500_000_000L;
+        d.liquidSurfaceTicks(candidate?d.liquidSurfaceTicks()+1:0);
+        if(d.liquidSurfaceTicks()<8||!enabled("Jesus"))return;
+        double confidence=Math.min(.88,.55+(d.liquidSurfaceTicks()-8)*.02);
+        Map<String,Object> data=new HashMap<>();
+        data.put("ticksOnLiquid",d.liquidSurfaceTicks());
+        data.put("horizontal",d.horizontalSpeed());
+        data.put("pingMs",p.getPing());
+        emit(p,"Jesus",confidence,Math.max(.06,(confidence-.48)*2.6),sink,data);
     }
 
     private double distanceToBox(Vector point,BoundingBox box){

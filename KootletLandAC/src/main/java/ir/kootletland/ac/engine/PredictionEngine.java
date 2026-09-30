@@ -18,6 +18,7 @@ public final class PredictionEngine {
     public boolean anomalousVertical(Player player, PlayerData data) {
         if(player.isOnGround()||player.isInWater()||player.isInLava()||player.isFlying()||player.isInsideVehicle()) return false;
         if(data.movementSamples()<8) return false;
-        return verticalDeviation(player,data)>.45&&Math.abs(data.verticalDelta())>.28;
+        double bonus=PhysicsEngine.jumpBonus(player);
+        return verticalDeviation(player,data)>.45+bonus&&Math.abs(data.verticalDelta())>.28+bonus;
     }
 }

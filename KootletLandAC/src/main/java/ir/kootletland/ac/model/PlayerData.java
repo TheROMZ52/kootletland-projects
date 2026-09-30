@@ -50,6 +50,10 @@ public final class PlayerData {
     private double pitchAcceleration;
     private double previousYawDelta;
     private double previousPitchDelta;
+    private long lastGlideNanos;
+    private long lastSlipperyNanos;
+    private int liquidSurfaceTicks;
+    private final TimerBalance timer=new TimerBalance();
 
     public PlayerData(Player player){
         uuid=player.getUniqueId();
@@ -127,8 +131,15 @@ public final class PlayerData {
         attackSamples++;
     }
 
+    public long lastGlideNanos(){return lastGlideNanos;}
+    public void touchGlide(){lastGlideNanos=System.nanoTime();}
+    public long lastSlipperyNanos(){return lastSlipperyNanos;}
+    public void touchSlippery(){lastSlipperyNanos=System.nanoTime();}
+    public int liquidSurfaceTicks(){return liquidSurfaceTicks;}
+    public void liquidSurfaceTicks(int v){liquidSurfaceTicks=Math.max(0,Math.min(1000,v));}
+    public TimerBalance timer(){return timer;}
     public long lastTeleportNanos(){return lastTeleportNanos;}
-    public void touchTeleport(){lastTeleportNanos=System.nanoTime();}
+    public void touchTeleport(){lastTeleportNanos=System.nanoTime();timer.reset();}
     public long lastDamageNanos(){return lastDamageNanos;}
     public void touchDamage(){lastDamageNanos=System.nanoTime();}
     public double violation(){return violation;}
