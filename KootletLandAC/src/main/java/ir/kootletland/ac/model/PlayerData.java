@@ -11,6 +11,7 @@ import java.util.UUID;
 public final class PlayerData {
     private final UUID uuid;
     private final Deque<Evidence> evidence=new ArrayDeque<>();
+    private final Deque<Double> attackIntervals=new ArrayDeque<>();
     private Location last;
     private Location current;
     private Vector lastVelocity=new Vector();
@@ -108,6 +109,8 @@ public final class PlayerData {
                 double diff=attackIntervalMs-attackMean;
                 attackMean+=diff/attackCount;
                 attackM2+=diff*(attackIntervalMs-attackMean);
+                attackIntervals.addFirst(attackIntervalMs);
+                while(attackIntervals.size()>40)attackIntervals.removeLast();
             }
         }
         lastAttackNanos=now;
@@ -141,6 +144,8 @@ public final class PlayerData {
     public double attackVariance(){return attackCount>1?attackM2/(attackCount-1):0;}
     public double movementStdDev(){return Math.sqrt(movementVariance());}
     public double attackStdDev(){return Math.sqrt(attackVariance());}
+    public double attackCoefficientOfVariation(){return attackMean>0?attackStdDev()/attackMean:0;}
+    public int attackIntervalSamples(){return attackIntervals.size();}
     public int movementSamples(){return movementSamples;}
     public int attackSamples(){return attackSamples;}
     public int consecutiveMovementAnomalies(){return consecutiveMovementAnomalies;}
