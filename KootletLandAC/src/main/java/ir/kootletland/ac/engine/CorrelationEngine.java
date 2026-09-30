@@ -2,11 +2,12 @@ package ir.kootletland.ac.engine;
 
 import ir.kootletland.ac.model.Evidence;
 
-import java.time.Instant;
 import java.util.ArrayDeque;
 import java.util.Deque;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 
 public final class CorrelationEngine {
@@ -17,22 +18,35 @@ public final class CorrelationEngine {
         long now=System.currentTimeMillis();
         Deque<Evidence> q=recent.computeIfAbsent(id,k->new ArrayDeque<>());
         q.addFirst(e);
-        while(!q.isEmpty() && now-q.peekLast().timestamp().toEpochMilli()>WINDOW_MILLIS) q.removeLast();
+        while(!q.isEmpty()&&now-q.peekLast().timestamp().toEpochMilli()>WINDOW_MILLIS)q.removeLast();
         if(q.size()<3)return false;
+
+        Set<String> distinct=new HashSet<>();
         boolean movement=false;
         boolean combat=false;
         boolean velocity=false;
         double confidenceSum=0;
+        double weightedSum=0;
         int count=0;
+
         for(Evidence x:q){
-            if(now-x.timestamp().toEpochMilli()>WINDOW_MILLIS)break;
+            long age=now-x.timestamp().toEpochMilli();
+            if(age>WINDOW_MILLIS)break;
+            distinct.add(x.check());
             confidenceSum+=x.confidence();
+            weightedSum+=x.confidence()*Math.min(1.0,Math.max(.35,1.0-age/(double)WINDOW_MILLIS));
             count++;
             if(isMovement(x.check()))movement=true;
             if(isCombat(x.check()))combat=true;
             if("Velocity".equals(x.check()))velocity=true;
         }
-        return (movement&&combat&&count>=3||velocity&&movement&&count>=3)&&confidenceSum/count>=0.62;
+
+        if(count<3||distinct.size()<2)return false;
+        double average=confidenceSum/count;
+        double weighted=weightedSum/count;
+        boolean crossDomain=movement&&combat;
+        boolean movementVelocity=movement&&velocity;
+        return (crossDomain||movementVelocity)&&average>=.62&&weighted>=.58;
     }
 
     private boolean isMovement(String check){
