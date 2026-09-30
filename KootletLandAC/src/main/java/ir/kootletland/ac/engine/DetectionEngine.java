@@ -41,7 +41,10 @@ public final class DetectionEngine {
         double tickRatio=interval>0?50.0/interval:1.0;
 
         boolean invalid=Math.abs(now.getY())>2.0E7||Math.abs(now.getX())>3.0E7||Math.abs(now.getZ())>3.0E7;
+        double speedStd=d.speedStdDev();
+        double speedZ=speedStd>.015&&d.speedCount()>18?(actual-d.speedMean())/speedStd:0;
         boolean speed=ratio>1.24+latency&&actual-expected>.035&&d.movementSamples()>3;
+        boolean speedPattern=speedZ>3.25&&actual>expected*.96&&d.speedCount()>24;
         boolean fly=!p.isOnGround()&&!p.isInWater()&&!p.isInLava()&&d.movementSamples()>8
                 &&d.verticalDelta()>.30&&d.velocity().getY()<.08&&d.lastExpectedSpeed()>.05;
         boolean highJump=!p.isOnGround()&&!p.isInWater()&&d.verticalDelta()>.72&&d.movementSamples()>6;
@@ -58,12 +61,13 @@ public final class DetectionEngine {
         long velocityAge=System.nanoTime()-d.lastVelocityNanos();
         boolean velocity=velocityAge>120_000_000L&&velocityAge<900_000_000L&&d.velocity().lengthSquared()>.09&&actual<Math.max(.035,d.velocity().clone().setY(0).length()*.18);
 
-        int signals=(invalid?1:0)+(speed?1:0)+(fly?1:0)+(highJump?1:0)+(step?1:0)+(noFall?1:0)+(jesus?1:0)+(noweb?1:0)+(longJump?1:0)+(timer?1:0)+(phase?1:0)+(strafe?1:0)+(motion?1:0)+(velocity?1:0);
+        int signals=(invalid?1:0)+(speed?1:0)+(speedPattern?1:0)+(fly?1:0)+(highJump?1:0)+(step?1:0)+(noFall?1:0)+(jesus?1:0)+(noweb?1:0)+(longJump?1:0)+(timer?1:0)+(phase?1:0)+(strafe?1:0)+(motion?1:0)+(velocity?1:0);
         d.movementAnomaly(signals>0);
         if(signals==0)return;
 
         double confidence=.30;
         confidence+=speed?Math.min(.25,Math.max(0,ratio-1.0)*.28):0;
+        confidence+=speedPattern?.08:0;
         confidence+=fly?.16:0;
         confidence+=highJump?.12:0;
         confidence+=step?.08:0;
@@ -81,12 +85,15 @@ public final class DetectionEngine {
         if(invalid)confidence=.995;
         confidence=Math.max(.25,Math.min(.995,confidence));
 
-        String check=invalid?"InvalidMovement":speed?"Speed":fly?"Fly":highJump?"HighJump":step?"Step":noFall?"NoFall":jesus?"Jesus":noweb?"NoWeb":longJump?"LongJump":timer?"Timer":phase?"Phase":strafe?"Strafe":velocity?"Velocity":"Motion";
+        String check=invalid?"InvalidMovement":speed?"Speed":speedPattern?"Speed":fly?"Fly":highJump?"HighJump":step?"Step":noFall?"NoFall":jesus?"Jesus":noweb?"NoWeb":longJump?"LongJump":timer?"Timer":phase?"Phase":strafe?"Strafe":velocity?"Velocity":"Motion";
         if(!enabled(check))return;
         Map<String,Object> data=new HashMap<>();
         data.put("expected",expected);
         data.put("actual",actual);
         data.put("ratio",ratio);
+        data.put("speedMean",d.speedMean());
+        data.put("speedStdDev",speedStd);
+        data.put("speedZScore",speedZ);
         data.put("pingMs",p.getPing());
         data.put("latencyFactor",latency);
         data.put("movementIntervalMs",interval);
