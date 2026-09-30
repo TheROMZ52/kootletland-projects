@@ -2,6 +2,7 @@ package ir.kootletland.ac.engine;
 
 import ir.kootletland.ac.model.Evidence;
 import ir.kootletland.ac.model.PlayerData;
+import ir.kootletland.ac.metrics.Metrics;
 import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
 import org.bukkit.plugin.Plugin;
@@ -15,6 +16,7 @@ public final class AntiCheatEngine {
     private final DetectionEngine detection=new DetectionEngine();
     private final CorrelationEngine correlation=new CorrelationEngine();
     private final BufferEngine buffer=new BufferEngine();
+    private final Metrics metrics=new Metrics();
     private final java.util.concurrent.CopyOnWriteArrayList<java.util.function.Consumer<Evidence>> listeners=new java.util.concurrent.CopyOnWriteArrayList<>();
     private final Map<UUID,PlayerData> players=new ConcurrentHashMap<>();
     private final Map<UUID,Long> lastAlerts=new ConcurrentHashMap<>();
@@ -67,17 +69,21 @@ public final class AntiCheatEngine {
     public void move(Player p){
         if(p.hasPermission("kootletlandac.bypass"))return;
         PlayerData d=add(p);
+        long started=System.nanoTime();
         d.update(p.getLocation());
         detection.movement(p,d,e->record(p,e));
         d.touchMovement();
+        metrics.check(System.nanoTime()-started);
         checks++;
     }
 
     public void attack(Player p,org.bukkit.entity.Entity target){
         if(p.hasPermission("kootletlandac.bypass"))return;
         PlayerData d=add(p);
+        long started=System.nanoTime();
         detection.combat(p,target,d,e->record(p,e));
         d.touchAttack();
+        metrics.check(System.nanoTime()-started);
         checks++;
     }
 
@@ -87,6 +93,7 @@ public final class AntiCheatEngine {
 
     private void record(Player p,Evidence e){
         detections++;
+        metrics.detection();
         listeners.forEach(listener->{try{listener.accept(e);}catch(Throwable ignored){}});
         PlayerData d=add(p);
         boolean corroborated=correlation.add(p.getUniqueId(),e);
@@ -110,6 +117,7 @@ public final class AntiCheatEngine {
         if(previous!=null&&now-previous<cooldown)return;
         lastAlerts.put(p.getUniqueId(),now);
         alerts++;
+        metrics.warning();
         String msg="§c[KootletAC] §f"+p.getName()+" §7→ §e"+e.check()+" §7confidence=§f"+String.format("%.1f",e.confidence()*100)+"%% §7VL=§f"+String.format("%.2f",add(p).violation())+(corroborated?" §7correlated":"");
         Bukkit.getOnlinePlayers().stream().filter(x->x.hasPermission("kootletlandac.alerts")).forEach(x->x.sendMessage(msg));
         plugin.getLogger().warning(msg.replaceAll("§[0-9a-fk-or]",""));
@@ -118,6 +126,7 @@ public final class AntiCheatEngine {
     public long checks(){return checks;}
     public long detections(){return detections;}
     public long alerts(){return alerts;}
+    public Metrics metrics(){return metrics;}
     public long uptime(){return System.currentTimeMillis()-started;}
     public Map<UUID,PlayerData> players(){return players;}
     public void listen(java.util.function.Consumer<Evidence> listener){if(listener!=null)listeners.add(listener);}
@@ -135,6 +144,7 @@ public final class AntiCheatEngine {
                 " §7moveStd=§f"+String.format("%.2f",d.movementStdDev())+
                 " §7attackInterval=§f"+String.format("%.1fms",d.attackIntervalMs())+
                 " §7attackStd=§f"+String.format("%.2f",d.attackStdDev())+
+                " §7speedStd=§f"+String.format("%.4f",d.speedStdDev())+
                 " §7evidence=§f"+d.evidence().size();
     }
 }
