@@ -24,6 +24,7 @@ public final class PhysicsEngine {
         if(m==Material.POWDER_SNOW||below==Material.POWDER_SNOW)base*=.72;
         if(m==Material.BUBBLE_COLUMN)base*=.55;
         if(p.isInsideVehicle())base*=1.8;
+        if(m==Material.LADDER||m==Material.VINE||m==Material.SCAFFOLDING)base*=.58;
         VectorLike v=new VectorLike(d.velocity().getX(),d.velocity().getZ());
         if(v.length()>.01)base+=Math.min(1.0,v.length()*.75);
         if(!p.isOnGround()&&d.verticalDelta()>0)base*=1.04;
