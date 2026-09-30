@@ -37,6 +37,8 @@ public final class AntiCheatEngine {
                 if(p!=null) processMove(p);
             }
             pendingMoves.clear();
+        },1L,1L);
+        Bukkit.getScheduler().runTaskTimer(plugin,()->{
             for(Player p:Bukkit.getOnlinePlayers()){
                 PlayerData d=add(p);
                 d.decay(0.035);
