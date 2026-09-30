@@ -44,6 +44,10 @@ public final class PlayerData {
     private long attackCount;
     private int consecutiveMovementAnomalies;
     private int consecutiveCombatAnomalies;
+    private double yawAcceleration;
+    private double pitchAcceleration;
+    private double previousYawDelta;
+    private double previousPitchDelta;
 
     public PlayerData(Player player){
         uuid=player.getUniqueId();
@@ -70,6 +74,10 @@ public final class PlayerData {
         }
         yawDelta=angleDelta(current.getYaw(),last.getYaw());
         pitchDelta=current.getPitch()-last.getPitch();
+        yawAcceleration=yawDelta-previousYawDelta;
+        pitchAcceleration=pitchDelta-previousPitchDelta;
+        previousYawDelta=yawDelta;
+        previousPitchDelta=pitchDelta;
         horizontalSpeed=Math.hypot(current.getX()-last.getX(),current.getZ()-last.getZ());
         if(Double.isFinite(horizontalSpeed)){
             speedCount++;
@@ -130,6 +138,8 @@ public final class PlayerData {
     public void addEvidence(Evidence e,int max){evidence.addFirst(e);while(evidence.size()>max)evidence.removeLast();}
     public double yawDelta(){return yawDelta;}
     public double pitchDelta(){return pitchDelta;}
+    public double yawAcceleration(){return yawAcceleration;}
+    public double pitchAcceleration(){return pitchAcceleration;}
     public double horizontalSpeed(){return horizontalSpeed;}
     public double speedMean(){return speedMean;}
     public double speedVariance(){return speedCount>1?speedM2/(speedCount-1):0;}
