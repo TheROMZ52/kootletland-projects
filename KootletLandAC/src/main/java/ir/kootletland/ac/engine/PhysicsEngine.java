@@ -18,8 +18,11 @@ public final class PhysicsEngine {
         PotionEffect slow=p.getPotionEffect(org.bukkit.potion.PotionEffectType.SLOWNESS);
         if(slow!=null)base*=Math.max(.05,1.0-.15*(slow.getAmplifier()+1));
         Material m=p.getLocation().getBlock().getType();
+        Material below=p.getLocation().clone().subtract(0,1,0).getBlock().getType();
         if(isIce(m))base*=1.55;
         if(m==Material.SOUL_SAND||m==Material.SOUL_SOIL)base*=.42;
+        if(m==Material.POWDER_SNOW||below==Material.POWDER_SNOW)base*=.72;
+        if(m==Material.BUBBLE_COLUMN)base*=.55;
         if(p.isInsideVehicle())base*=1.8;
         VectorLike v=new VectorLike(d.velocity().getX(),d.velocity().getZ());
         if(v.length()>.01)base+=Math.min(1.0,v.length()*.75);
