@@ -2,6 +2,8 @@ package ir.kootletland.ac.model;
 
 import org.bukkit.Location;
 import org.bukkit.entity.Player;
+import org.bukkit.Bukkit;
+import org.bukkit.GameMode;
 import org.bukkit.util.Vector;
 
 import java.util.ArrayDeque;
@@ -158,6 +160,12 @@ public final class PlayerData {
     public int attackIntervalSamples(){return attackIntervals.size();}
     public int movementSamples(){return movementSamples;}
     public int attackSamples(){return attackSamples;}
+    public PlayerSnapshot snapshot(Player player,long ageTicks){
+        return new PlayerSnapshot(current.clone(),last.clone(),lastVelocity.clone(),horizontalSpeed,verticalDelta,yawDelta,pitchDelta,
+                player.getPing(),Bukkit.getTPS()[0],player.isOnGround(),player.isSprinting(),player.isSneaking(),
+                player.isSwimming(),player.isInWater(),player.isInLava(),player.isInsideVehicle(),player.isFlying(),
+                player.getGameMode(),ageTicks);
+    }
     public int consecutiveMovementAnomalies(){return consecutiveMovementAnomalies;}
     public void movementAnomaly(boolean anomaly){consecutiveMovementAnomalies=anomaly?Math.min(100,consecutiveMovementAnomalies+1):Math.max(0,consecutiveMovementAnomalies-1);}
     public int consecutiveCombatAnomalies(){return consecutiveCombatAnomalies;}
