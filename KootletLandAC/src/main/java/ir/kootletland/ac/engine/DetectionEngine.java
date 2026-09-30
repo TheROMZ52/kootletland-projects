@@ -34,6 +34,7 @@ public final class DetectionEngine {
 
         double expected=physics.expectedHorizontal(p,d);
         double actual=d.horizontalSpeed();
+        d.lastExpectedSpeed(expected);
         double ratio=actual/Math.max(.05,expected);
         double latency=physics.latencyFactor(p);
         double interval=d.movementIntervalMs();
