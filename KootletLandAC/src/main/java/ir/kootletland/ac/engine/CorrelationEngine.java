@@ -21,6 +21,7 @@ public final class CorrelationEngine {
         if(q.size()<3)return false;
         boolean movement=false;
         boolean combat=false;
+        boolean velocity=false;
         double confidenceSum=0;
         int count=0;
         for(Evidence x:q){
@@ -29,8 +30,9 @@ public final class CorrelationEngine {
             count++;
             if(isMovement(x.check()))movement=true;
             if(isCombat(x.check()))combat=true;
+            if("Velocity".equals(x.check()))velocity=true;
         }
-        return movement&&combat&&count>=3&&confidenceSum/count>=0.62;
+        return (movement&&combat&&count>=3||velocity&&movement&&count>=3)&&confidenceSum/count>=0.62;
     }
 
     private boolean isMovement(String check){
