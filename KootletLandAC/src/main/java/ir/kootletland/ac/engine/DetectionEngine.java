@@ -41,6 +41,9 @@ public final class DetectionEngine {
         double latency=physics.latencyFactor(p);
         double interval=d.movementIntervalMs();
         double tickRatio=interval>0?50.0/interval:1.0;
+        double tps=Bukkit.getTPS()[0];
+        double intervalExpected=50.0*Math.min(1.35,Math.max(.55,20.0/Math.max(1.0,tps)));
+        double intervalDeviation=interval>0?Math.abs(interval-intervalExpected)/intervalExpected:0.0;
 
         boolean invalid=Math.abs(now.getY())>2.0E7||Math.abs(now.getX())>3.0E7||Math.abs(now.getZ())>3.0E7;
         double speedStd=d.speedStdDev();
@@ -56,7 +59,7 @@ public final class DetectionEngine {
         boolean jesus=p.isInWater()&&!p.isSwimming()&&Math.abs(d.verticalDelta())<.01&&d.horizontalSpeed()>.12;
         boolean noweb=block==Material.COBWEB&&d.horizontalSpeed()>.12&&!p.isSneaking();
         boolean longJump=!p.isOnGround()&&d.verticalDelta()>.08&&d.verticalDelta()<.65&&ratio>1.42;
-        boolean timer=d.movementSamples()>35&&tickRatio>1.45&&d.movementStdDev()<5.0;
+        boolean timer=d.movementSamples()>35&&tickRatio>1.18&&intervalDeviation>.22&&d.movementStdDev()<24.0;
         boolean phase=insideSolid(p)&&d.horizontalSpeed()>.08&&!p.isSneaking();
         boolean strafe=!p.isOnGround()&&Math.abs(d.yawDelta())>115&&actual>expected*1.15;
         boolean motion=!p.isOnGround()&&Math.abs(d.verticalDelta())>.42&&Math.abs(d.velocity().getY())<.04;
