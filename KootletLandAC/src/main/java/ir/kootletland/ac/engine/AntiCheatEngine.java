@@ -20,6 +20,7 @@ public final class AntiCheatEngine {
     private final java.util.concurrent.CopyOnWriteArrayList<java.util.function.Consumer<Evidence>> listeners=new java.util.concurrent.CopyOnWriteArrayList<>();
     private final Map<UUID,PlayerData> players=new ConcurrentHashMap<>();
     private final Map<UUID,Long> lastAlerts=new ConcurrentHashMap<>();
+    private final java.util.Set<UUID> pendingMoves=ConcurrentHashMap.newKeySet();
     private long checks;
     private long detections;
     private long alerts;
@@ -31,6 +32,11 @@ public final class AntiCheatEngine {
         started=System.currentTimeMillis();
         for(Player p:Bukkit.getOnlinePlayers())add(p);
         Bukkit.getScheduler().runTaskTimer(plugin,()->{
+            for(UUID id:pendingMoves){
+                Player p=Bukkit.getPlayer(id);
+                if(p!=null) processMove(p);
+            }
+            pendingMoves.clear();
             for(Player p:Bukkit.getOnlinePlayers()){
                 PlayerData d=add(p);
                 d.decay(0.035);
@@ -51,8 +57,8 @@ public final class AntiCheatEngine {
     }
 
     public void shutdown(){
-        players.clear();
-        lastAlerts.clear();
+        pendingMoves.clear();
+        players.clear();        lastAlerts.clear();
     }
 
     public PlayerData add(Player p){return players.computeIfAbsent(p.getUniqueId(),id->new PlayerData(p));}
@@ -68,6 +74,11 @@ public final class AntiCheatEngine {
 
     public void move(Player p){
         if(p.hasPermission("kootletlandac.bypass"))return;
+        pendingMoves.add(p.getUniqueId());
+    }
+
+    private void processMove(Player p){
+        if(!p.isOnline()||p.hasPermission("kootletlandac.bypass"))return;
         PlayerData d=add(p);
         long started=System.nanoTime();
         d.update(p.getLocation());
