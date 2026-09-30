@@ -18,6 +18,7 @@ import java.util.concurrent.ConcurrentHashMap;
 
 public final class DetectionEngine {
     private final PhysicsEngine physics=new PhysicsEngine();
+    private final ContextEngine context=new ContextEngine();
     private final Map<String,Boolean> enabled=new ConcurrentHashMap<>();
 
     public DetectionEngine(){
@@ -28,7 +29,7 @@ public final class DetectionEngine {
     public boolean enabled(String check){return enabled.getOrDefault(check,true);}
 
     public void movement(Player p,PlayerData d,Consumer<Evidence> sink){
-        if(physics.contextualGrace(p,d)){d.movementAnomaly(false);return;}
+        if(physics.contextualGrace(p,d)||context.movementModifier(p,d)>.86){d.movementAnomaly(false);return;}
         Location now=d.current();
         if(!finite(now)){d.movementAnomaly(true);emit(p,"InvalidMovement",.995,2.0,sink,Map.of("reason","non_finite_coordinates"));return;}
 
@@ -121,6 +122,10 @@ public final class DetectionEngine {
         double interval=d.attackIntervalMs();
         double yaw=Math.abs(d.yawDelta());
         double pitch=Math.abs(d.pitchDelta());
+        Vector hitPoint=new Vector(clamp(eye.getX(),box.getMinX(),box.getMaxX()),clamp(eye.getY(),box.getMinY(),box.getMaxY()),clamp(eye.getZ(),box.getMinZ(),box.getMaxZ()));
+        Vector line=hitPoint.clone().subtract(eye);
+        boolean blocked=line.lengthSquared()>.0001&&attacker.getWorld().rayTraceBlocks(attacker.getEyeLocation(),line.clone().normalize(),line.length(),true)==null;
+        if(!blocked&&distance>2.9)return;
 
         boolean reach=distance>3.15+allowance&&distance<7.5;
         boolean aim=yaw>95&&yaw<175&&pitch<25&&d.horizontalSpeed()<.08;
@@ -145,6 +150,8 @@ public final class DetectionEngine {
         if(!enabled(check))return;
         Map<String,Object> data=new HashMap<>();
         data.put("distanceToHitbox",distance);
+        data.put("lineOfSight",blocked);
+        data.put("targetVelocity",victim.getVelocity().length());
         data.put("pingMs",ping);
         data.put("reachAllowance",allowance);
         data.put("yawDelta",yaw);
