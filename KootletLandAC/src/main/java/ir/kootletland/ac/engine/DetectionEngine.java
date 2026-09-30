@@ -139,7 +139,8 @@ public final class DetectionEngine {
         if(!lineOfSight&&distance>2.9)return;
 
         boolean reach=distance>3.15+allowance&&distance<7.5;
-        boolean aim=yaw>95&&yaw<175&&pitch<25&&d.horizontalSpeed()<.08;
+        double rotationAcceleration=Math.abs(d.yawAcceleration())+Math.abs(d.pitchAcceleration());
+        boolean aim=yaw>95&&yaw<175&&pitch<25&&d.horizontalSpeed()<.08&&rotationAcceleration<18.0;
         boolean click=interval>0&&interval<85&&d.attackSamples()>10;
         boolean periodic=click&&d.attackCoefficientOfVariation()<.11&&d.attackStdDev()<7.0&&d.attackIntervalSamples()>=18;
         boolean killaura=aim&&periodic&&(distance<4.5+allowance);
@@ -167,6 +168,9 @@ public final class DetectionEngine {
         data.put("reachAllowance",allowance);
         data.put("yawDelta",yaw);
         data.put("pitchDelta",pitch);
+        data.put("yawAcceleration",d.yawAcceleration());
+        data.put("pitchAcceleration",d.pitchAcceleration());
+        data.put("rotationAcceleration",rotationAcceleration);
         data.put("attackIntervalMs",interval);
         data.put("attackStdDev",d.attackStdDev());
         data.put("attackCoefficientOfVariation",d.attackCoefficientOfVariation());
