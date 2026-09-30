@@ -130,8 +130,8 @@ public final class DetectionEngine {
 
         boolean reach=distance>3.15+allowance&&distance<7.5;
         boolean aim=yaw>95&&yaw<175&&pitch<25&&d.horizontalSpeed()<.08;
-        boolean click=interval>0&&interval<48&&d.attackSamples()>8;
-        boolean periodic=click&&d.attackStdDev()<3.5&&d.attackSamples()>12;
+        boolean click=interval>0&&interval<85&&d.attackSamples()>10;
+        boolean periodic=click&&d.attackCoefficientOfVariation()<.11&&d.attackStdDev()<7.0&&d.attackIntervalSamples()>=18;
         boolean killaura=aim&&periodic&&(distance<4.5+allowance);
 
         int signals=(reach?1:0)+(aim?1:0)+(periodic?1:0)+(killaura?1:0);
@@ -159,6 +159,8 @@ public final class DetectionEngine {
         data.put("pitchDelta",pitch);
         data.put("attackIntervalMs",interval);
         data.put("attackStdDev",d.attackStdDev());
+        data.put("attackCoefficientOfVariation",d.attackCoefficientOfVariation());
+        data.put("attackIntervalSamples",d.attackIntervalSamples());
         data.put("target",victim.getName());
         data.put("signals",signals);
         emit(attacker,check,confidence,Math.max(.05,(confidence-.5)*2.5),sink,data);
