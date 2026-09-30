@@ -124,8 +124,8 @@ public final class DetectionEngine {
         double pitch=Math.abs(d.pitchDelta());
         Vector hitPoint=new Vector(clamp(eye.getX(),box.getMinX(),box.getMaxX()),clamp(eye.getY(),box.getMinY(),box.getMaxY()),clamp(eye.getZ(),box.getMinZ(),box.getMaxZ()));
         Vector line=hitPoint.clone().subtract(eye);
-        boolean blocked=line.lengthSquared()>.0001&&attacker.getWorld().rayTraceBlocks(attacker.getEyeLocation(),line.clone().normalize(),line.length(),true)==null;
-        if(!blocked&&distance>2.9)return;
+        boolean lineOfSight=line.lengthSquared()<=.0001||attacker.getWorld().rayTraceBlocks(attacker.getEyeLocation(),line.clone().normalize(),line.length(),true)==null;
+        if(!lineOfSight&&distance>2.9)return;
 
         boolean reach=distance>3.15+allowance&&distance<7.5;
         boolean aim=yaw>95&&yaw<175&&pitch<25&&d.horizontalSpeed()<.08;
@@ -150,7 +150,7 @@ public final class DetectionEngine {
         if(!enabled(check))return;
         Map<String,Object> data=new HashMap<>();
         data.put("distanceToHitbox",distance);
-        data.put("lineOfSight",blocked);
+        data.put("lineOfSight",lineOfSight);
         data.put("targetVelocity",victim.getVelocity().length());
         data.put("pingMs",ping);
         data.put("reachAllowance",allowance);
