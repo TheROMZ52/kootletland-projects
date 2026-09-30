@@ -15,7 +15,13 @@ public final class ContextEngine {
         Material m = p.getLocation().getBlock().getType();
         if (m == Material.ICE || m == Material.PACKED_ICE || m == Material.BLUE_ICE || m == Material.FROSTED_ICE) grace += .25;
         if (m == Material.SLIME_BLOCK || m == Material.HONEY_BLOCK) grace += .35;
+        if (m == Material.POWDER_SNOW || below == Material.POWDER_SNOW) grace += .40;
+        if (m == Material.BUBBLE_COLUMN) grace += .50;
         return Math.min(.9, grace);
+    }
+
+    private boolean isClimbable(Material m){
+        return m==Material.LADDER||m==Material.VINE||m==Material.SCAFFOLDING||m==Material.WEEPING_VINES||m==Material.WEEPING_VINES_PLANT||m==Material.TWISTING_VINES||m==Material.TWISTING_VINES_PLANT;
     }
 
     public boolean invalid(Player p) {
