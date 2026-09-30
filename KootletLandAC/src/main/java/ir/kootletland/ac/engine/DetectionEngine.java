@@ -101,6 +101,8 @@ public final class DetectionEngine {
         data.put("movementIntervalMs",interval);
         data.put("movementStdDev",d.movementStdDev());
         data.put("tickRatio",tickRatio);
+        data.put("intervalExpectedMs",intervalExpected);
+        data.put("intervalDeviation",intervalDeviation);
         data.put("dx",now.getX()-d.last().getX());
         data.put("dy",d.verticalDelta());
         data.put("dz",now.getZ()-d.last().getZ());
