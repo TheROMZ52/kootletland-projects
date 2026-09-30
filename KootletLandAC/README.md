@@ -46,4 +46,4 @@ Checks are evidence-based and contextual. Teleports, velocity, liquids, vehicles
 
 ## Status
 
-Version 1.0.0 is the initial production-oriented foundation. Packet adapters, richer prediction models, Grim signal ingestion, and expanded statistical models are intentionally isolated as extension points rather than faked as implemented.
+Version 1.0.0 is a production-oriented foundation with contextual movement/combat signals, statistical timing, dynamic suspicion buffering, cross-engine correlation, explainable evidence, staff-only warnings, configuration reloads, diagnostics, and a public API. Raw packet telemetry and Grim signal ingestion are intentionally reported as unavailable until a real supported adapter is implemented; they are not simulated.
