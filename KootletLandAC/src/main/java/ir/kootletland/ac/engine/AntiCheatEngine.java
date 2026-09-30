@@ -40,7 +40,12 @@ public final class AntiCheatEngine {
 
     public void reloadChecks(){
         String[][] groups={{"speed","Speed"},{"fly","Fly"},{"nofall","NoFall"},{"jesus","Jesus"},{"step","Step"},{"highjump","HighJump"},{"longjump","LongJump"},{"timer","Timer"},{"phase","Phase"},{"noweb","NoWeb"},{"invalidmovement","InvalidMovement"},{"strafe","Strafe"},{"motion","Motion"},{"reach","Reach"},{"killaura","KillAura"},{"aim","Aim"},{"autoclicker","AutoClicker"},{"velocity","Velocity"}};
-        for(String[] x:groups) detection.setEnabled(x[1],plugin.getConfig().getBoolean("checks.movement."+x[0],true)||plugin.getConfig().getBoolean("checks.combat."+x[0],true));
+        for(String[] x:groups){
+            boolean movement=plugin.getConfig().getBoolean("checks.movement."+x[0],false);
+            boolean combat=plugin.getConfig().getBoolean("checks.combat."+x[0],false);
+            boolean enabled=movement||combat||x[1].equals("InvalidMovement");
+            detection.setEnabled(x[1],enabled);
+        }
     }
 
     public void shutdown(){
@@ -89,7 +94,6 @@ public final class AntiCheatEngine {
         if(corroborated)confidence=Math.min(.995,confidence+.08);
         double suspicion=buffer.add(p.getUniqueId(),e.violation()*(corroborated?1.15:1.0));
         d.addViolation(Math.min(1.5,e.violation()*(corroborated?1.15:1.0)));
-        d.confidence(Math.max(d.confidence(),confidence));
         d.confidence(confidence);
         d.addEvidence(e,plugin.getConfig().getInt("settings.max-evidence-per-player",80));
 
