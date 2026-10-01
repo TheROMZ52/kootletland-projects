@@ -16,6 +16,7 @@ public final class PacketPipeline implements Consumer<NormalizedPacket> {
 
     @Override public void accept(NormalizedPacket packet){
         long started=System.nanoTime();
+        long pb=engine.profiler().begin();
         try{
             Player p=Bukkit.getPlayer(packet.player());
             if(p==null)return;
@@ -33,6 +34,7 @@ public final class PacketPipeline implements Consumer<NormalizedPacket> {
             }
         }finally{
             engine.metrics().event(System.nanoTime()-started);
+            engine.profiler().end("pipeline",pb);
         }
     }
 }

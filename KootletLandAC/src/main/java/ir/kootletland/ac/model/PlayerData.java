@@ -76,10 +76,7 @@ public final class PlayerData {
     private final Map<String,Integer> effects=new HashMap<>();
 
     // prediction
-    private double predictedDy;
-    private final double[] deviations=new double[DEVIATION_WINDOW];
-    private int deviationCount;
-    private int deviationNext;
+    private final VerticalMotionTracker vertical=new VerticalMotionTracker();
     private final boolean[] speedOver=new boolean[SPEED_WINDOW];
     private int speedOverNext;
 
@@ -180,24 +177,14 @@ public final class PlayerData {
     public boolean recentlyKnockedBack(){return System.nanoTime()-lastVelocityNanos<900_000_000L&&lastVelocity.lengthSquared()>.025;}
 
     // ---- prediction state
-    public double predictedDy(){return predictedDy;}
-    public void predictedDy(double v){predictedDy=v;}
+    public VerticalMotionTracker vertical(){return vertical;}
+    public double predictedDy(){return vertical.predicted();}
+    public void predictedDy(double v){vertical.predicted(v);}
     public boolean wasServerOnGround(){return wasServerOnGround;}
-
-    public void pushVerticalDeviation(double deviation){
-        deviations[deviationNext]=deviation;
-        deviationNext=(deviationNext+1)%DEVIATION_WINDOW;
-        if(deviationCount<DEVIATION_WINDOW)deviationCount++;
-    }
-
-    public void clearVerticalDeviations(){deviationCount=0;deviationNext=0;}
-    public int deviationSamples(){return deviationCount;}
-
-    public int deviationsAbove(double threshold){
-        int n=0;
-        for(int i=0;i<deviationCount;i++)if(deviations[i]>threshold)n++;
-        return n;
-    }
+    public void pushVerticalDeviation(double deviation){vertical.push(deviation);}
+    public void clearVerticalDeviations(){vertical.clear();}
+    public int deviationSamples(){return vertical.samples();}
+    public int deviationsAbove(double threshold){return vertical.above(threshold);}
 
     public void pushSpeedOver(boolean over){
         speedOver[speedOverNext]=over;
@@ -215,8 +202,7 @@ public final class PlayerData {
     public void velocity(Vector v){
         lastVelocity=v.clone();
         lastVelocityNanos=System.nanoTime();
-        predictedDy=v.getY();
-        clearVerticalDeviations();
+        vertical.applyVelocity(v.getY());
     }
     public long lastVelocityNanos(){return lastVelocityNanos;}
     public long lastMovementNanos(){return lastMovementNanos;}

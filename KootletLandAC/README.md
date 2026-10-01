@@ -5,7 +5,7 @@ It does not ban on a single threshold. Every detection produces **evidence with 
 buffered, correlated across checks, looked at over time, and only then turned into an alert.
 **Automatic punishment is off by default.**
 
-> Status: v1.1.0. Compiles and passes unit tests in CI. It has **not yet been validated on a live server with real
+> Status: v1.2.0. Compiles and passes unit tests in CI. It has **not yet been validated on a live server with real
 > players**, so treat alerts as leads for staff, not as proof.
 
 ## Installation
@@ -117,8 +117,29 @@ api.registerCheck(new CustomCheck(){ /* name(), onMove(...), onAttack(...) */ })
 api.registerIntegration(integration);
 ```
 
-`StorageProvider` (default: none) and `DetectionBridge` (default: none, the seam for a future Velocity/central setup)
-are interfaces; the core has no database or network dependency.
+`StorageProvider` and `DetectionBridge` are interfaces; the core has no database or network dependency.
+
+## Storage (optional)
+
+`storage.type` is `none` (default), `sqlite` or `mysql` and is read once at startup. Evidence goes through a bounded queue to
+one worker thread and is written in batches, so the main thread never waits on the database. If the queue is full, rows are
+dropped and counted instead of blocking. Rows older than `storage.retention-days` are purged at startup and hourly.
+`/kac history <player>` reads the latest stored evidence off the main thread. A database that cannot be opened makes the
+plugin continue without storage (logged at startup). Paper ships the SQLite and MySQL JDBC drivers.
+
+## Multi-server (Velocity)
+
+Each backend keeps detecting and deciding on its own. With `network.enabled: true` a backend sends evidence at or above
+`network.min-confidence` over the plugin channel `kootletlandac:evidence` (rate limited per player and check). The
+`velocity/` module (built together with the plugin by `gradle build`) receives it and shows an alert to staff with
+`kootletlandac.alerts.network` who are on a **different** server. It never punishes. `network.server-name` should match the
+backend's name in the Velocity config. Central punishment is not implemented; the proxy only aggregates alerts.
+The message format lives in one source file shared by both sides and is validated on decode (version, lengths, ranges).
+
+## Profiling
+
+`/kac profile` shows calls, average, maximum and total time per section (`movement.state`, `movement.checks`, `timer`,
+`combat`, `record`, `pipeline`); `/kac profile reset` clears it. `settings.profiling: false` turns it off.
 
 ## Development
 
@@ -128,17 +149,25 @@ gradle test build
 ```
 
 Unit tests cover the pure logic (timer balance, statistics windows, lag math, reach geometry, behavior, decision,
-correlation, rotation analysis, packet validation). Anything that needs a live Paper server is not covered.
+correlation, rotation analysis, packet validation, JSON, wire format, profiler, SQLite storage). Scenario tests feed
+synthetic streams into the vertical motion model (normal jump, Jump Boost, ledge, hover, ascent, knockback, landing) and
+into correlation/behavior/decision (legit player stays LOW, a sustained multi-check cheater escalates, one check never
+punishes). Integration tests against a live Paper server, Grim, LiteBans, LuckPerms and a Velocity proxy are **not**
+covered; they need a real server.
 
 ## Known limitations
 
-* No raw packet layer yet: only Bukkit events are used, so transaction/keep-alive timing is **NOT IMPLEMENTED** and `onGround` comes from the client. Ground spoofing is detected by comparing it with the server's own collision check.
+* No raw packet layer: only Bukkit events are used, so transaction/keep-alive timing is **NOT IMPLEMENTED** (it needs a packet library such as PacketEvents) and `onGround` comes from the client. Ground spoofing is detected by comparing it with the server's own collision check.
+* The Velocity module only aggregates alerts; it was compiled in CI but not run on a real proxy. Central punishment is not implemented.
 * Piston pushes and other plugin-driven movement without a velocity event can still look unusual.
 * Aim quantization breaks with zoom mods and touch (Bedrock) input, so it only supports other signals.
 * Hover with no movement packets at all is not seen, because no movement event fires.
 * Grim bridge unverified on a live Grim server. Detection quality is unvalidated on a live server.
 
 ## Changelog
+
+### 1.2.0
+SQLite/MySQL evidence storage with async batching and retention, `/kac history`, plugin-message bridge plus a Velocity module for cross-server alerts, built-in profiler (`/kac profile`), vertical motion model extracted into a testable class, scenario tests.
 
 ### 1.1.0
 Spec completion: packet abstraction (normalized packets + pipeline), state model, vertical prediction with multi-tick deviation, lag compensation engine, behavior engine, decision engine with levels, configurable VERY_HIGH action (off by default), bypass modes, optional Grim bridge, custom checks and integrations in the API, windowed statistics (median, percentile, entropy), new combat signals (hit angle, target switching, rotation grid), richer metrics and `/kac debug`.

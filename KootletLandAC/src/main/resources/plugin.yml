@@ -8,7 +8,7 @@ softdepend: [GrimAC, LiteBans, LuckPerms]
 commands:
   kac:
     description: KootletLandAC administration command
-    usage: /kac <debug|alerts|stats|reload|verbose>
+    usage: /kac <debug|verbose|stats|profile|history|checks|integrations|alerts|reload>
     permission: kootletlandac.admin
 permissions:
   kootletlandac.admin:

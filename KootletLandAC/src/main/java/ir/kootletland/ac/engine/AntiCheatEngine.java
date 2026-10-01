@@ -7,6 +7,7 @@ import ir.kootletland.ac.model.Evidence;
 import ir.kootletland.ac.model.PlayerData;
 import ir.kootletland.ac.network.DetectionBridge;
 import ir.kootletland.ac.network.NoopDetectionBridge;
+import ir.kootletland.ac.profile.Profiler;
 import ir.kootletland.ac.storage.NoopStorageProvider;
 import ir.kootletland.ac.storage.StorageProvider;
 import org.bukkit.Bukkit;
@@ -40,6 +41,7 @@ public final class AntiCheatEngine {
     private final BehaviorEngine behavior=new BehaviorEngine();
     private final BufferEngine buffer=new BufferEngine();
     private final Metrics metrics=new Metrics();
+    private final Profiler profiler=new Profiler();
     private final CopyOnWriteArrayList<Consumer<Evidence>> listeners=new CopyOnWriteArrayList<>();
     private final CopyOnWriteArrayList<CustomCheck> customChecks=new CopyOnWriteArrayList<>();
     private final CopyOnWriteArrayList<Integration> integrations=new CopyOnWriteArrayList<>();
@@ -119,6 +121,7 @@ public final class AntiCheatEngine {
             boolean combat=plugin.getConfig().getBoolean("checks.combat."+x[0],false);
             detection.setEnabled(x[1],movement||combat);
         }
+        profiler.enabled(plugin.getConfig().getBoolean("settings.profiling",true));
         checkErrors.clear();
         faulted.clear();
     }
@@ -185,7 +188,9 @@ public final class AntiCheatEngine {
         if(skipBypass(p))return;
         pendingMoves.add(p.getUniqueId());
         if(faulted.contains("timer"))return;
+        long tb=profiler.begin();
         try{detection.timer(p,add(p),e->record(p,e));}catch(Throwable t){onCheckError("timer",t);}
+        profiler.end("timer",tb);
     }
 
     private void processMove(Player p){
@@ -193,10 +198,14 @@ public final class AntiCheatEngine {
         if(!p.isOnline()||skipBypass(p))return;
         PlayerData d=add(p);
         long begin=System.nanoTime();
+        long sb=profiler.begin();
         d.update(p.getLocation());
         d.movementTick(serverTick);
         d.refreshState(p);
+        profiler.end("movement.state",sb);
+        long cb=profiler.begin();
         detection.movement(p,d,e->record(p,e));
+        profiler.end("movement.checks",cb);
         for(CustomCheck c:customChecks){
             String key="custom:"+c.name();
             if(faulted.contains(key))continue;
@@ -213,7 +222,9 @@ public final class AntiCheatEngine {
         PlayerData d=add(p);
         PlayerData victimData=target instanceof Player v?players.get(v.getUniqueId()):null;
         long begin=System.nanoTime();
+        long ab=profiler.begin();
         try{detection.combat(p,target,d,victimData,e->record(p,e));}catch(Throwable t){onCheckError("combat",t);}
+        profiler.end("combat",ab);
         for(CustomCheck c:customChecks){
             String key="custom:"+c.name();
             if(faulted.contains(key))continue;
@@ -239,6 +250,11 @@ public final class AntiCheatEngine {
     }
 
     private void record(Player p,Evidence e){
+        long rb=profiler.begin();
+        try{recordInternal(p,e);}finally{profiler.end("record",rb);}
+    }
+
+    private void recordInternal(Player p,Evidence e){
         detections++;
         metrics.detection(e.check());
         listeners.forEach(listener->{try{listener.accept(e);}catch(Throwable ignored){}});
@@ -335,6 +351,8 @@ public final class AntiCheatEngine {
     public long alerts(){return alerts;}
     public long punishments(){return punishments;}
     public Metrics metrics(){return metrics;}
+    public Profiler profiler(){return profiler;}
+    public StorageProvider storage(){return storage;}
     public LagCompensationEngine lag(){return lag;}
     public BehaviorEngine behavior(){return behavior;}
     public long uptime(){return System.currentTimeMillis()-started;}

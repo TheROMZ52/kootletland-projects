@@ -1,18 +1,19 @@
 package ir.kootletland.ac.engine;
 
 import ir.kootletland.ac.model.PlayerData;
+import ir.kootletland.ac.model.VerticalMotionTracker;
 import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.entity.Player;
 import org.bukkit.potion.PotionEffectType;
 
 public final class PredictionEngine {
-    public static final double GRAVITY=.08;
-    public static final double DRAG=.98;
-    public static final double JUMP_VELOCITY=.42;
+    public static final double GRAVITY=VerticalMotionTracker.GRAVITY;
+    public static final double DRAG=VerticalMotionTracker.DRAG;
+    public static final double JUMP_VELOCITY=VerticalMotionTracker.JUMP_VELOCITY;
     /** A single tick off the model means nothing; the model only speaks after this many of the last 8 ticks. */
-    public static final double DEVIATION_THRESHOLD=.05;
-    public static final int DEVIATION_REQUIRED=6;
+    public static final double DEVIATION_THRESHOLD=VerticalMotionTracker.THRESHOLD;
+    public static final int DEVIATION_REQUIRED=VerticalMotionTracker.REQUIRED;
 
     /** Expected vs actual state for one tick, explainable in evidence. */
     public record Prediction(double expectedX,double expectedY,double expectedZ,
@@ -20,7 +21,7 @@ public final class PredictionEngine {
                              double horizontalDeviation,double verticalDeviation){}
 
     /** Vanilla vertical motion: y += vy; vy = (vy - 0.08) * 0.98. */
-    public static double nextVelocity(double velocity){return (velocity-GRAVITY)*DRAG;}
+    public static double nextVelocity(double velocity){return VerticalMotionTracker.nextVelocity(velocity);}
 
     /**
      * Advances the vertical model by one processed tick and returns this tick's deviation (NaN when the model did not apply).
@@ -28,35 +29,12 @@ public final class PredictionEngine {
      * chain from drifting; a cheater hovering or rising shows up as a steady positive deviation instead.
      */
     public double step(Player p,PlayerData d,boolean graced,double lagTolerance){
-        double actual=d.verticalDelta();
-        boolean skip=graced||d.serverOnGround()||d.onClimbable()||lagTolerance>.25||d.movementIntervalMs()>65.0||d.movementIntervalMs()<20.0;
-        if(d.serverOnGround()){
-            d.predictedDy(0.0);
-            d.clearVerticalDeviations();
-            return Double.NaN;
-        }
-        if(skip){
-            d.predictedDy(nextVelocity(actual));
-            d.clearVerticalDeviations();
-            return Double.NaN;
-        }
-        double deviation;
-        if(d.wasServerOnGround()){
-            // first airborne tick: either a jump (up to jump velocity) or walking off a ledge
-            double maxUp=JUMP_VELOCITY+PhysicsEngine.jumpBonus(p)+.05;
-            deviation=Math.max(0,actual-maxUp);
-        }else{
-            deviation=actual-d.predictedDy();
-        }
-        d.pushVerticalDeviation(deviation);
-        d.predictedDy(nextVelocity(actual));
-        return deviation;
+        boolean skip=graced||d.onClimbable()||lagTolerance>.25||d.movementIntervalMs()>65.0||d.movementIntervalMs()<20.0;
+        return d.vertical().step(d.verticalDelta(),d.serverOnGround(),d.wasServerOnGround(),skip,PhysicsEngine.jumpBonus(p));
     }
 
     /** True when the last 8 ticks were mostly above what gravity allows. */
-    public boolean sustainedUpwardDeviation(PlayerData d){
-        return d.deviationSamples()>=DEVIATION_REQUIRED&&d.deviationsAbove(DEVIATION_THRESHOLD)>=DEVIATION_REQUIRED;
-    }
+    public boolean sustainedUpwardDeviation(PlayerData d){return d.vertical().sustainedUpward();}
 
     public Prediction predict(PlayerData d,double expectedHorizontal){
         Location cur=d.current(),prev=d.last();

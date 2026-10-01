@@ -5,6 +5,7 @@ settings:
   # reviewed real evidence on your own server. See decision.very-high below.
   auto-punishment: false
   max-evidence-per-player: 80
+  profiling: true
   confidence-warning-threshold: 0.82
   violation-warning-threshold: 5.0
 
@@ -55,3 +56,25 @@ integrations:
   # LiteBans and LuckPerms need no code: commands run via console, permissions are normal nodes.
   litebans: false
   luckperms: true
+
+storage:
+  # none | sqlite | mysql. Changing the type needs a restart. Writes are queued and never block the main thread.
+  type: none
+  retention-days: 30
+  queue-size: 2000
+  sqlite:
+    file: evidence.db
+  mysql:
+    host: 127.0.0.1
+    port: 3306
+    database: kootletac
+    user: root
+    password: ""
+
+network:
+  # Multi-server: send high-confidence evidence to the Velocity module (velocity/ in this repo) for staff alerts.
+  enabled: false
+  server-name: backend
+  min-confidence: 0.82
+
+
