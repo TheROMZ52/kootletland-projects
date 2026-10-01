@@ -71,7 +71,7 @@ public final class PredictionEngine {
 
     /** Blocks/effects that legitimately break the gravity model (cobweb, vines, liquids, honey, slow falling...). */
     public boolean verticalModelBroken(Player p){
-        if(p.isInWater()||p.isInLava()||p.isSwimming()||p.isClimbing())return true;
+        if(p.isInWater()||p.isInLava()||p.isSwimming())return true;
         if(p.hasPotionEffect(PotionEffectType.SLOW_FALLING)||p.hasPotionEffect(PotionEffectType.LEVITATION))return true;
         Material feet=p.getLocation().getBlock().getType();
         Material body=p.getLocation().clone().add(0,1,0).getBlock().getType();
