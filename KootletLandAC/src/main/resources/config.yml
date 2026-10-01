@@ -1,11 +1,31 @@
 settings:
   alerts: true
   alert-cooldown-ms: 3000
+  # Master switch for automatic action. OFF by default and it should stay off until you have
+  # reviewed real evidence on your own server. See decision.very-high below.
   auto-punishment: false
-  debug-retention: 120
   max-evidence-per-player: 80
   confidence-warning-threshold: 0.82
   violation-warning-threshold: 5.0
+
+bypass:
+  # skip     = checks do not run for players with kootletlandac.bypass
+  # log-only = checks run, but results only go to the console (no alerts, no VL, no punishment)
+  mode: skip
+
+decision:
+  # LOW      monitor only
+  # MEDIUM   alert staff (confidence + VL above the thresholds above)
+  # HIGH     alert staff faster (90%+ confidence, VL 10+, 2+ independent checks)
+  # VERY_HIGH only this level can run the commands below, and only if settings.auto-punishment is true
+  #           (95%+ confidence, VL 15+, 3+ independent checks, sustained behaviour)
+  high-alert-cooldown-ms: 1500
+  very-high:
+    cooldown-seconds: 300
+    # Console commands. Placeholders: {player} {check} {confidence} {vl}
+    # Example with LiteBans:  - "tempban {player} 1d KootletAC: {check} ({confidence}%)"
+    commands: []
+
 checks:
   movement:
     speed: true
@@ -27,7 +47,11 @@ checks:
     aim: true
     autoclicker: true
     velocity: true
+
 integrations:
+  # Optional. Flags from Grim are used as one signal and never punish on their own.
   grim: true
+  grim-confidence: 0.5
+  # LiteBans and LuckPerms need no code: commands run via console, permissions are normal nodes.
   litebans: false
   luckperms: true

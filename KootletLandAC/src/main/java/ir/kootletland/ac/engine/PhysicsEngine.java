@@ -7,6 +7,10 @@ import org.bukkit.potion.PotionEffect;
 import org.bukkit.potion.PotionEffectType;
 
 public final class PhysicsEngine {
+    private final LagCompensationEngine lag;
+
+    public PhysicsEngine(LagCompensationEngine lag){this.lag=lag;}
+
     public double expectedHorizontal(Player p,PlayerData d){
         if(p.isFlying()||p.getGameMode().isInvulnerable())return 1.0;
         double base=p.isSprinting() ? .285 : .215;
@@ -57,7 +61,7 @@ public final class PhysicsEngine {
     }
 
     public double latencyFactor(Player p){
-        return Math.min(.28,Math.max(0,p.getPing())/350.0);
+        return lag.tolerance(p);
     }
 
     /** Block that actually supports the player (feet block for partial blocks, block below for full ones). */

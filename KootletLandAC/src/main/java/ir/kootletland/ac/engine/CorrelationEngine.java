@@ -25,6 +25,8 @@ public final class CorrelationEngine {
         boolean movement=false;
         boolean combat=false;
         boolean velocity=false;
+        boolean grim=false;
+        int own=0;
         double confidenceSum=0;
         double weightedSum=0;
         int count=0;
@@ -39,6 +41,7 @@ public final class CorrelationEngine {
             if(isMovement(x.check()))movement=true;
             if(isCombat(x.check()))combat=true;
             if("Velocity".equals(x.check()))velocity=true;
+            if("Grim".equals(x.check()))grim=true;else own++;
         }
 
         if(count<3||distinct.size()<2)return false;
@@ -46,7 +49,10 @@ public final class CorrelationEngine {
         double weighted=weightedSum/count;
         boolean crossDomain=movement&&combat;
         boolean movementVelocity=movement&&velocity;
-        return (crossDomain||movementVelocity)&&average>=.62&&weighted>=.58;
+        boolean strong=(crossDomain||movementVelocity)&&average>=.62&&weighted>=.58;
+        // Grim is one signal among others: it only corroborates when our own checks also fired repeatedly.
+        boolean withGrim=grim&&own>=2&&average>=.55&&weighted>=.50;
+        return strong||withGrim;
     }
 
     private boolean isMovement(String check){
