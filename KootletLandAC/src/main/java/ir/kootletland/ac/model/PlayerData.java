@@ -136,7 +136,7 @@ public final class PlayerData {
         transactionLatencyMs=Math.max(0,p.getPing());
         if(movementSamples%5==0){
             effects.clear();
-            for(PotionEffect e:p.getActiveEffects())effects.put(e.getType().getKey().getKey(),e.getAmplifier());
+            for(PotionEffect e:p.getActivePotionEffects())effects.put(e.getType().getKey().getKey(),e.getAmplifier());
         }
     }
 
