@@ -1,5 +1,6 @@
 # KootletLand Projects
 
+A toolbox for the KootletLand universe — anti-cheat, server utilities, and fewer “who broke the server?” moments.
 A collection of Minecraft server tools and development projects for the KootletLand network.
 
 ## Projects
