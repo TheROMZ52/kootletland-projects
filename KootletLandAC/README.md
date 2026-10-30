@@ -1,3 +1,5 @@
+[English](README.md) · [فارسی](README.fa.md)
+
 # KootletLandAC
 
 Evidence-driven anti-cheat for Paper 1.21.x, built for the KootletLand network.
