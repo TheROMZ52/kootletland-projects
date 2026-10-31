@@ -18,6 +18,7 @@ public abstract class Module {
     public boolean enabled;
     public float anim;
     public int x, y;
+    public final int defX, defY;
     public int width = 60, height = 14;
     public final List<Setting> settings = new ArrayList<Setting>();
 
@@ -37,6 +38,8 @@ public abstract class Module {
         this.anim = enabledByDefault ? 1F : 0F;
         this.x = x;
         this.y = y;
+        this.defX = x;
+        this.defY = y;
         if (hud) {
             scale = addNum("Scale", 1.0, 0.5, 2.0, 0.1);
             background = addBool("Background", true);
@@ -63,6 +66,8 @@ public abstract class Module {
     }
 
     protected void drop(Setting s) { settings.remove(s); }
+
+    public void resetPos() { x = defX; y = defY; }
 
     public void toggle() { setEnabled(!enabled); }
 

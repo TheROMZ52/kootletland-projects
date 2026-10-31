@@ -10,6 +10,7 @@ import org.lwjgl.opengl.GL11;
 
 import com.kootletland.client.ClickTracker;
 import com.kootletland.client.CombatTracker;
+import com.kootletland.client.Notifications;
 import com.kootletland.client.Theme;
 
 import net.minecraft.block.Block;
@@ -27,6 +28,8 @@ import net.minecraft.client.renderer.RenderHelper;
 import net.minecraft.client.resources.I18n;
 import net.minecraft.entity.EntityLivingBase;
 import net.minecraft.entity.player.EntityPlayer;
+import net.minecraft.init.Items;
+import net.minecraft.item.Item;
 import net.minecraft.item.ItemStack;
 import net.minecraft.potion.Potion;
 import net.minecraft.potion.PotionEffect;
@@ -126,6 +129,26 @@ public final class Modules {
         }
         @Override protected String text(Minecraft mc) {
             return (use24.value ? f24 : f12).format(new Date());
+        }
+    }
+
+    public static class Health extends TextModule {
+        public Health() { super("Health", "Your health points", Category.HUD, false, 4, 190); }
+        @Override protected String text(Minecraft mc) {
+            EntityPlayerSP p = mc.thePlayer;
+            if (p == null) return "HP: -";
+            float abs = p.getAbsorptionAmount();
+            return "HP: " + (Math.round(p.getHealth() * 10.0) / 10.0)
+                    + (abs > 0F ? " +" + (Math.round(abs * 10.0) / 10.0) : "");
+        }
+    }
+
+    public static class SprintStatus extends TextModule {
+        public SprintStatus() { super("Sprint Status", "Sprinting / sneaking / walking", Category.HUD, false, 4, 206); }
+        @Override protected String text(Minecraft mc) {
+            EntityPlayerSP p = mc.thePlayer;
+            if (p == null) return "[-]";
+            return p.isSneaking() ? "[Sneaking]" : (p.isSprinting() ? "[Sprinting]" : "[Walking]");
         }
     }
 
@@ -271,12 +294,14 @@ public final class Modules {
     }
 
     public static class TargetHud extends Module {
+        private final Setting.Bool gear;
         private float shown = -1F;
         private EntityLivingBase last;
 
         public TargetHud() {
             super("Target HUD", "Health + face of who you're fighting", Category.PVP, true, true, 170, 40);
             drop(color);
+            gear = addBool("Show Gear", true);
         }
 
         @Override
@@ -300,7 +325,7 @@ public final class Modules {
             shown += (hp - shown) * 0.12F;
 
             width = 140;
-            height = 40;
+            height = gear.value ? 60 : 40;
             box();
 
             ResourceLocation skin = null;
@@ -327,6 +352,74 @@ public final class Modules {
                 int tc = mine > hp ? 0xFF3DDC84 : (mine < hp ? 0xFFFF4545 : Theme.MUTED);
                 fr.drawStringWithShadow(tag, x + width - 5 - fr.getStringWidth(tag), y + 6, tc);
             }
+
+            if (gear.value && live) {
+                RenderHelper.enableGUIStandardItemLighting();
+                for (int i = 0; i < 5; i++) {
+                    ItemStack st = t.getEquipmentInSlot(i);
+                    if (st != null) mc.getRenderItem().renderItemAndEffectIntoGUI(st, x + 6 + i * 20, y + 40);
+                }
+                RenderHelper.disableStandardItemLighting();
+                GlStateManager.disableLighting();
+                GlStateManager.enableAlpha();
+                GlStateManager.enableBlend();
+                GlStateManager.color(1F, 1F, 1F, 1F);
+            }
+        }
+    }
+
+    public static class ItemCounter extends Module {
+        private final Setting.Bool gapples, pearls, arrows, potions;
+        private final ItemStack sGap = new ItemStack(Items.golden_apple);
+        private final ItemStack sPearl = new ItemStack(Items.ender_pearl);
+        private final ItemStack sArrow = new ItemStack(Items.arrow);
+        private final ItemStack sPot = new ItemStack(Items.potionitem, 1, 16421);
+
+        public ItemCounter() {
+            super("Item Counter", "Counts gapples, pearls, arrows, potions", Category.PVP, true, true, 4, 222);
+            drop(color);
+            gapples = addBool("Gapples", true);
+            pearls = addBool("Pearls", true);
+            arrows = addBool("Arrows", false);
+            potions = addBool("Potions", true);
+        }
+
+        private int count(Minecraft mc, Item item) {
+            int n = 0;
+            for (ItemStack st : mc.thePlayer.inventory.mainInventory) {
+                if (st != null && st.getItem() == item) n += st.stackSize;
+            }
+            return n;
+        }
+
+        @Override
+        public void render(Minecraft mc, boolean editing) {
+            if (mc.thePlayer == null) return;
+            ItemStack[] icons = new ItemStack[4];
+            int[] counts = new int[4];
+            int rows = 0;
+            if (gapples.value) { icons[rows] = sGap; counts[rows++] = count(mc, Items.golden_apple); }
+            if (pearls.value) { icons[rows] = sPearl; counts[rows++] = count(mc, Items.ender_pearl); }
+            if (arrows.value) { icons[rows] = sArrow; counts[rows++] = count(mc, Items.arrow); }
+            if (potions.value) { icons[rows] = sPot; counts[rows++] = count(mc, Items.potionitem); }
+            if (rows == 0) return;
+
+            width = 46;
+            height = rows * 18 + 4;
+            box();
+            RenderHelper.enableGUIStandardItemLighting();
+            for (int i = 0; i < rows; i++) {
+                mc.getRenderItem().renderItemAndEffectIntoGUI(icons[i], x + 5, y + 3 + i * 18);
+            }
+            RenderHelper.disableStandardItemLighting();
+            GlStateManager.disableLighting();
+            GlStateManager.enableAlpha();
+            GlStateManager.enableBlend();
+            GlStateManager.color(1F, 1F, 1F, 1F);
+            for (int i = 0; i < rows; i++) {
+                mc.fontRendererObj.drawStringWithShadow(String.valueOf(counts[i]), x + 26, y + 8 + i * 18,
+                        counts[i] == 0 ? Theme.MUTED : Theme.TEXT);
+            }
         }
     }
 
@@ -334,7 +427,8 @@ public final class Modules {
 
     public static class Crosshair extends Module {
         private final Setting.Num size, gap, thick;
-        private final Setting.Bool dot, outline;
+        private final Setting.Bool dot, outline, dynamic, hitmarker;
+        private float dyn;
         private final Setting.Mode mode;
 
         public Crosshair() {
@@ -345,6 +439,8 @@ public final class Modules {
             dot = addBool("Dot", false);
             outline = addBool("Outline", true);
             mode = addMode("Color", "Accent", "White", "Green", "Red", "Rainbow");
+            dynamic = addBool("Dynamic", false);
+            hitmarker = addBool("Hit Marker", true);
         }
 
         private int col() {
@@ -358,7 +454,12 @@ public final class Modules {
         }
 
         public void drawAt(int cx, int cy) {
-            int s = size.i(), g = gap.i(), t = thick.i(), c = col();
+            Minecraft mc = Minecraft.getMinecraft();
+            float want = 0F;
+            if (dynamic.value && mc.thePlayer != null
+                    && (mc.thePlayer.moveForward != 0F || mc.thePlayer.moveStrafing != 0F)) want = 3F;
+            dyn += (want - dyn) * 0.2F;
+            int s = size.i(), g = gap.i() + Math.round(dyn), t = thick.i(), c = col();
             int o = t / 2;
             for (int pass = outline.value ? 0 : 1; pass < 2; pass++) {
                 int e = pass == 0 ? 1 : 0;
@@ -368,6 +469,14 @@ public final class Modules {
                 Gui.drawRect(cx - o - e, cy - g - s - e, cx - o + t + e, cy - g + e, cc);
                 Gui.drawRect(cx - o - e, cy + g - e, cx - o + t + e, cy + g + s + e, cc);
                 if (dot.value) Gui.drawRect(cx - o - e, cy - o - e, cx - o + t + e, cy - o + t + e, cc);
+            }
+            if (hitmarker.value && System.currentTimeMillis() - CombatTracker.lastHit < 250L) {
+                for (int k = 3; k <= 7; k++) {
+                    Gui.drawRect(cx - k, cy - k, cx - k + 2, cy - k + 2, 0xFFFF4545);
+                    Gui.drawRect(cx + k - 1, cy - k, cx + k + 1, cy - k + 2, 0xFFFF4545);
+                    Gui.drawRect(cx - k, cy + k - 1, cx - k + 2, cy + k + 1, 0xFFFF4545);
+                    Gui.drawRect(cx + k - 1, cy + k - 1, cx + k + 1, cy + k + 1, 0xFFFF4545);
+                }
             }
         }
     }
@@ -443,6 +552,26 @@ public final class Modules {
         }
     }
 
+    public static class TimeChanger extends Module {
+        private final Setting.Mode time;
+        public TimeChanger() {
+            super("Time Changer", "Client-side time of day", Category.VISUAL, false, false, 0, 0);
+            time = addMode("Time", "Day", "Noon", "Sunset", "Night", "Midnight");
+        }
+        @Override public void tick(Minecraft mc) {
+            if (mc.theWorld == null) return;
+            long t;
+            switch (time.index) {
+                case 0: t = 1000L; break;
+                case 1: t = 6000L; break;
+                case 2: t = 12500L; break;
+                case 3: t = 14000L; break;
+                default: t = 18000L; break;
+            }
+            mc.theWorld.setWorldTime(t);
+        }
+    }
+
     /* ===================== Utility ===================== */
 
     public static class ToggleSprint extends Module {
@@ -463,6 +592,33 @@ public final class Modules {
         public ChatTimestamps() {
             super("Chat Time", "Adds [HH:mm] before every chat message", Category.UTILITY, false, true, 0, 0);
             use24 = addBool("24 Hour", true);
+        }
+    }
+
+    public static class CompactChat extends Module {
+        public CompactChat() { super("Compact Chat", "Merges repeated messages into (x2), (x3)...", Category.UTILITY, false, true, 0, 0); }
+    }
+
+    public static class ArmorAlert extends Module {
+        private final boolean[] warned = new boolean[4];
+        private final Setting.Num percent;
+        public ArmorAlert() {
+            super("Armor Alert", "Warns when armor is about to break", Category.UTILITY, false, true, 0, 0);
+            percent = addNum("Percent", 15, 5, 50, 5);
+        }
+        @Override public void tick(Minecraft mc) {
+            if (mc.thePlayer == null) return;
+            for (int i = 0; i < 4; i++) {
+                ItemStack st = mc.thePlayer.inventory.armorInventory[i];
+                if (st == null || st.getMaxDamage() <= 0) { warned[i] = false; continue; }
+                float r = (st.getMaxDamage() - st.getItemDamage()) * 100F / st.getMaxDamage();
+                if (r < percent.value && !warned[i]) {
+                    warned[i] = true;
+                    Notifications.push("Armor low", st.getDisplayName() + " " + (int) r + "%", false);
+                } else if (r > percent.value + 10F) {
+                    warned[i] = false;
+                }
+            }
         }
     }
 }

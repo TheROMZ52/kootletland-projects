@@ -2,11 +2,13 @@
 
 PvP client mod for KootletLand (Minecraft 1.8.9, Forge).
 
-**HUD:** Watermark, FPS, Ping, Coords, Direction, Speed, Memory, Clock
-**PvP:** CPS, Keystrokes, Combo, Reach, Target HUD, Armor Status, Potion Status
-**Visual:** Custom Crosshair, Fullbright, Zoom (smooth + scroll), No Fire, Block Outline
-**Utility:** Toggle Sprint, Chat Timestamps
+**HUD:** Watermark, FPS, Ping, Coords, Direction, Speed, Memory, Clock, Health, Sprint Status
+**PvP:** CPS, Keystrokes, Combo, Reach, Target HUD (with enemy gear), Armor Status, Potion Status, Item Counter
+**Visual:** Custom Crosshair (dynamic + hit marker), Fullbright, Zoom (smooth + scroll), No Fire, Block Outline, Time Changer
+**Utility:** Toggle Sprint, Chat Timestamps, Compact Chat, Armor Alert
 **Extras:** animated KootletLand main menu, in-game menu with per-module settings, 7 accent themes, toast notifications.
+
+**Keys (Controls menu):** `Toggle HUD` and `Toggle Fullbright` are unbound by default.
 
 **Keys:** `Right Shift` = menu (toggle modules, edit settings, drag HUD boxes), `C` = zoom (rebindable in Controls).
 
