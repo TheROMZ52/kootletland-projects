@@ -18,9 +18,11 @@ import net.minecraftforge.fml.common.event.FMLPreInitializationEvent;
         clientSideOnly = true, acceptedMinecraftVersions = "[1.8.9]")
 public class KootletClient {
     public static final String MODID = "kootletclient";
-    public static final String VERSION = "1.1.0";
+    public static final String VERSION = "1.2.0";
     public static KeyBinding openKey;
     public static KeyBinding zoomKey;
+    public static KeyBinding hudKey;
+    public static KeyBinding fullbrightKey;
     private File configDir;
 
     @Mod.EventHandler
@@ -32,7 +34,11 @@ public class KootletClient {
     public void init(FMLInitializationEvent e) {
         openKey = new KeyBinding("Open Menu", Keyboard.KEY_RSHIFT, "Kootlet Client");
         zoomKey = new KeyBinding("Zoom", Keyboard.KEY_C, "Kootlet Client");
+        hudKey = new KeyBinding("Toggle HUD", Keyboard.KEY_NONE, "Kootlet Client");
+        fullbrightKey = new KeyBinding("Toggle Fullbright", Keyboard.KEY_NONE, "Kootlet Client");
         ClientRegistry.registerKeyBinding(openKey);
+        ClientRegistry.registerKeyBinding(hudKey);
+        ClientRegistry.registerKeyBinding(fullbrightKey);
         ClientRegistry.registerKeyBinding(zoomKey);
 
         ModuleManager.init();

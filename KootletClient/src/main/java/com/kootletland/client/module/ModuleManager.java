@@ -5,6 +5,8 @@ import java.util.List;
 
 public final class ModuleManager {
     public static final List<Module> all = new ArrayList<Module>();
+    public static Module fullbright;
+    public static Modules.CompactChat compactChat;
     public static Modules.Zoom zoom;
     public static Modules.Crosshair crosshair;
     public static Modules.NoFire noFire;
@@ -23,6 +25,8 @@ public final class ModuleManager {
         all.add(new Modules.Speed());
         all.add(new Modules.Memory());
         all.add(new Modules.Clock());
+        all.add(new Modules.Health());
+        all.add(new Modules.SprintStatus());
         // PvP
         all.add(new Modules.Cps());
         all.add(new Modules.Keystrokes());
@@ -31,19 +35,25 @@ public final class ModuleManager {
         all.add(new Modules.TargetHud());
         all.add(new Modules.ArmorStatus());
         all.add(new Modules.PotionStatus());
+        all.add(new Modules.ItemCounter());
         // Visual
         crosshair = new Modules.Crosshair();
         all.add(crosshair);
-        all.add(new Modules.Fullbright());
+        fullbright = new Modules.Fullbright();
+        all.add(fullbright);
         zoom = new Modules.Zoom();
         all.add(zoom);
         noFire = new Modules.NoFire();
         all.add(noFire);
         blockOutline = new Modules.BlockOutline();
         all.add(blockOutline);
+        all.add(new Modules.TimeChanger());
         // Utility
         all.add(new Modules.ToggleSprint());
         chatTime = new Modules.ChatTimestamps();
         all.add(chatTime);
+        compactChat = new Modules.CompactChat();
+        all.add(compactChat);
+        all.add(new Modules.ArmorAlert());
     }
 }

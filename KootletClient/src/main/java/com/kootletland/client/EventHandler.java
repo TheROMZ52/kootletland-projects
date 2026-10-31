@@ -14,6 +14,7 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiMainMenu;
 import net.minecraft.client.renderer.GlStateManager;
 import net.minecraft.util.ChatComponentText;
+import net.minecraft.util.IChatComponent;
 import net.minecraftforge.client.event.ClientChatReceivedEvent;
 import net.minecraftforge.client.event.DrawBlockHighlightEvent;
 import net.minecraftforge.client.event.EntityViewRenderEvent;
@@ -27,7 +28,9 @@ import net.minecraftforge.fml.common.gameevent.TickEvent;
 
 public class EventHandler {
     private final Minecraft mc = Minecraft.getMinecraft();
-    private boolean zooming, prevSmooth, welcomed;
+    private boolean zooming, prevSmooth, welcomed, hudHidden;
+    private String lastChat;
+    private int chatCount = 1, lastChatId, nextChatId = 0x6B000;
 
     @SubscribeEvent
     public void onTick(TickEvent.ClientTickEvent e) {
@@ -36,6 +39,16 @@ public class EventHandler {
         if (mc.currentScreen == null) {
             while (KootletClient.openKey.isPressed()) {
                 mc.displayGuiScreen(new ClickGui());
+            }
+            while (KootletClient.hudKey.isPressed()) {
+                hudHidden = !hudHidden;
+                Notifications.push("HUD", hudHidden ? "Hidden" : "Shown", !hudHidden);
+            }
+            while (KootletClient.fullbrightKey.isPressed()) {
+                ModuleManager.fullbright.toggle();
+                Config.save();
+                Notifications.push("Fullbright", ModuleManager.fullbright.enabled ? "Enabled" : "Disabled",
+                        ModuleManager.fullbright.enabled);
             }
         }
 
@@ -103,7 +116,7 @@ public class EventHandler {
         if (e.type != RenderGameOverlayEvent.ElementType.ALL) return;
         if (mc.currentScreen instanceof ClickGui) return;
         GlStateManager.color(1F, 1F, 1F, 1F);
-        if (mc.thePlayer != null && !mc.gameSettings.showDebugInfo) {
+        if (mc.thePlayer != null && !mc.gameSettings.showDebugInfo && !hudHidden) {
             for (Module m : ModuleManager.all) {
                 if (m.hud && m.enabled) m.draw(mc, false);
             }
@@ -125,12 +138,41 @@ public class EventHandler {
 
     @SubscribeEvent
     public void onChat(ClientChatReceivedEvent e) {
+        if (e.type == 2) return;
         Modules.ChatTimestamps ct = ModuleManager.chatTime;
-        if (!ct.enabled || e.type == 2) return;
-        String t = new SimpleDateFormat(ct.use24.value ? "HH:mm" : "hh:mm a").format(new Date());
-        ChatComponentText prefix = new ChatComponentText("\u00a77[" + t + "] \u00a7r");
-        prefix.appendSibling(e.message);
-        e.message = prefix;
+        Modules.CompactChat cc = ModuleManager.compactChat;
+        if (!ct.enabled && !cc.enabled) return;
+
+        String plain = e.message.getUnformattedText();
+        boolean dup = cc.enabled && plain.equals(lastChat);
+
+        IChatComponent msg = e.message;
+        if (ct.enabled) {
+            String t = new SimpleDateFormat(ct.use24.value ? "HH:mm" : "hh:mm a").format(new Date());
+            ChatComponentText prefix = new ChatComponentText("\u00a77[" + t + "] \u00a7r");
+            prefix.appendSibling(msg.createCopy());
+            msg = prefix;
+        }
+
+        if (dup) {
+            chatCount++;
+            ChatComponentText out = new ChatComponentText("");
+            out.appendSibling(msg);
+            out.appendSibling(new ChatComponentText(" \u00a77(x" + chatCount + ")"));
+            mc.ingameGUI.getChatGUI().printChatMessageWithOptionalDeletion(out, lastChatId);
+            e.setCanceled(true);
+            return;
+        }
+
+        lastChat = plain;
+        chatCount = 1;
+        if (cc.enabled) {
+            lastChatId = nextChatId++;
+            mc.ingameGUI.getChatGUI().printChatMessageWithOptionalDeletion(msg, lastChatId);
+            e.setCanceled(true);
+        } else {
+            e.message = msg;
+        }
     }
 
     @SubscribeEvent

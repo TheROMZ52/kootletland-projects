@@ -5,6 +5,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 import org.lwjgl.input.Keyboard;
+import org.lwjgl.input.Mouse;
 
 import com.kootletland.client.Config;
 import com.kootletland.client.KootletClient;
@@ -19,7 +20,7 @@ import net.minecraft.client.gui.GuiScreen;
 import net.minecraft.client.renderer.GlStateManager;
 
 public class ClickGui extends GuiScreen {
-    private static final int PW = 360, PH = 220, SW = 76, LW = 140, RH = 20;
+    private static final int PW = 360, PH = 220, SW = 76, LW = 140, RH = 20, ROWS = 8;
     private static final String[] TABS = {"HUD", "PvP", "Visual", "Utility", "Theme"};
     private static int lastTab = 0;
 
@@ -31,6 +32,7 @@ public class ClickGui extends GuiScreen {
     private int dragDX, dragDY;
     private Setting.Num sliding;
     private int slideX, slideW;
+    private int scroll;
 
     private int px() { return (width - PW) / 2; }
     private int py() { return (height - PH) / 2; }
@@ -43,6 +45,8 @@ public class ClickGui extends GuiScreen {
     private boolean hit(int mx, int my, int x, int y, int w, int h) {
         return mx >= x && mx < x + w && my >= y && my < y + h;
     }
+
+    private int snap(int v, int target) { return Math.abs(v - target) <= 4 ? target : v; }
 
     private boolean inPanel(int mx, int my) { return hit(mx, my, px(), py(), PW, PH); }
 
@@ -57,6 +61,7 @@ public class ClickGui extends GuiScreen {
     private void selectFirst() {
         List<Module> l = current();
         selected = l.isEmpty() ? null : l.get(0);
+        scroll = 0;
     }
 
     private void outline(int x1, int y1, int x2, int y2, int c) {
@@ -140,9 +145,9 @@ public class ClickGui extends GuiScreen {
         // module list
         fontRendererObj.drawStringWithShadow(TABS[tab].toUpperCase(), listX(), py() + 12, Theme.accent());
         List<Module> mods = current();
-        for (int i = 0; i < mods.size(); i++) {
+        for (int i = scroll; i < Math.min(mods.size(), scroll + ROWS); i++) {
             Module m = mods.get(i);
-            int ry = listY() + i * 22;
+            int ry = listY() + (i - scroll) * 22;
             boolean over = hit(mx, my, listX(), ry, LW, RH);
             boolean sel = m == selected;
             drawRect(listX(), ry, listX() + LW, ry + RH, sel ? 0xFF262630 : (over ? Theme.ROW_HOVER : Theme.ROW));
@@ -150,6 +155,14 @@ public class ClickGui extends GuiScreen {
             fontRendererObj.drawStringWithShadow(m.name, listX() + 8, ry + 6, Theme.TEXT);
             m.anim += ((m.enabled ? 1F : 0F) - m.anim) * 0.25F;
             drawSwitch(listX() + LW - 30, ry + 5, m.anim);
+        }
+
+        if (mods.size() > ROWS) {
+            int trackH = ROWS * 22 - 2;
+            int thumbH = Math.max(12, trackH * ROWS / mods.size());
+            int thumbY = listY() + (trackH - thumbH) * scroll / Math.max(1, mods.size() - ROWS);
+            drawRect(listX() + LW + 1, listY(), listX() + LW + 3, listY() + trackH, Theme.OFF);
+            drawRect(listX() + LW + 1, thumbY, listX() + LW + 3, thumbY + thumbH, Theme.accent());
         }
 
         // settings pane
@@ -211,6 +224,10 @@ public class ClickGui extends GuiScreen {
         String ip = (Config.serverIp == null || Config.serverIp.isEmpty()) ? "not set (config: serverip)" : Config.serverIp;
         fontRendererObj.drawString("Server: " + ip, lx, iy + 24, Theme.MUTED);
         fontRendererObj.drawString("Config: .minecraft/config/kootletclient.properties", lx, iy + 36, Theme.MUTED);
+        int rbx = lx, rby = py() + PH - 34;
+        boolean ro = hit(mx, my, rbx, rby, 120, 18);
+        drawRect(rbx, rby, rbx + 120, rby + 18, ro ? Theme.accent() : Theme.accentDark());
+        centered("Reset HUD positions", rbx + 60, rby + 5, 0xFF000000);
     }
 
     private void applySlide(int mx) {
@@ -243,11 +260,16 @@ public class ClickGui extends GuiScreen {
                         return;
                     }
                 }
+                if (hit(mx, my, listX(), py() + PH - 34, 120, 18)) {
+                    for (Module m : ModuleManager.all) if (m.hud) m.resetPos();
+                    Config.save();
+                    Notifications.push("HUD", "Positions reset", true);
+                }
                 return;
             }
             List<Module> mods = current();
-            for (int i = 0; i < mods.size(); i++) {
-                int ry = listY() + i * 22;
+            for (int i = scroll; i < Math.min(mods.size(), scroll + ROWS); i++) {
+                int ry = listY() + (i - scroll) * 22;
                 if (hit(mx, my, listX(), ry, LW, RH)) {
                     Module m = mods.get(i);
                     if (mx >= listX() + LW - 34) {
@@ -299,8 +321,27 @@ public class ClickGui extends GuiScreen {
         if (sliding != null) {
             applySlide(mx);
         } else if (dragging != null) {
-            dragging.x = Math.max(0, Math.min(width - dragging.sw(), mx - dragDX));
-            dragging.y = Math.max(0, Math.min(height - dragging.sh(), my - dragDY));
+            int w = dragging.sw(), h = dragging.sh();
+            int nx = mx - dragDX, ny = my - dragDY;
+            nx = snap(nx, 0);
+            nx = snap(nx, width - w);
+            nx = snap(nx, (width - w) / 2);
+            ny = snap(ny, 0);
+            ny = snap(ny, height - h);
+            ny = snap(ny, (height - h) / 2);
+            for (Module o : ModuleManager.all) {
+                if (o == dragging || !o.hud || !o.enabled) continue;
+                nx = snap(nx, o.x);
+                nx = snap(nx, o.x + o.sw() - w);
+                nx = snap(nx, o.x + o.sw() + 2);
+                nx = snap(nx, o.x - w - 2);
+                ny = snap(ny, o.y);
+                ny = snap(ny, o.y + o.sh() - h);
+                ny = snap(ny, o.y + o.sh() + 2);
+                ny = snap(ny, o.y - h - 2);
+            }
+            dragging.x = Math.max(0, Math.min(width - w, nx));
+            dragging.y = Math.max(0, Math.min(height - h, ny));
         }
     }
 
@@ -312,6 +353,16 @@ public class ClickGui extends GuiScreen {
             Config.save();
         }
         super.mouseReleased(mx, my, state);
+    }
+
+    @Override
+    public void handleMouseInput() throws IOException {
+        super.handleMouseInput();
+        int d = Mouse.getEventDWheel();
+        if (d != 0 && tab < Category.values().length) {
+            int max = Math.max(0, current().size() - ROWS);
+            scroll = Math.max(0, Math.min(max, scroll + (d > 0 ? -1 : 1)));
+        }
     }
 
     @Override

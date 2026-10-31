@@ -12,7 +12,7 @@ public final class CombatTracker {
     public static long targetTime;
     public static int combo;
     public static double reach;
-    private static long lastHit;
+    public static long lastHit;
     private static int lastTargetHurt, lastSelfHurt;
 
     private CombatTracker() {}
